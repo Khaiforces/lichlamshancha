@@ -46,3 +46,5 @@ const FIREBASE_CONFIG = {
     appId: '1:422707302742:web:4ff2cbf4629aa36df4c6f7',
     measurementId: 'G-1Z2R2M4Y6K'
 };
+
+window.FIREBASE_CONFIG = FIREBASE_CONFIG;

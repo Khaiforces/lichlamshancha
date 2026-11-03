@@ -22,7 +22,62 @@ function saveData() {
     localStorage.setItem('staffPositions', JSON.stringify(staffPositions));
     localStorage.setItem('scheduleHistory', JSON.stringify(scheduleHistory));
     if (finalSchedule) localStorage.setItem('finalSchedule', JSON.stringify(finalSchedule));
+    window.saveSharedCloudState?.(getSharedAppState());
 }
+
+function getSharedAppState() {
+    return {
+        availabilities,
+        finalSchedule,
+        shiftQuotas,
+        staffPositions,
+        scheduleHistory,
+        scheduleDateRange: JSON.parse(localStorage.getItem('scheduleDateRange') || 'null')
+    };
+}
+
+function applySharedAppState(state) {
+    availabilities = state.availabilities || {};
+    finalSchedule = state.finalSchedule || null;
+    shiftQuotas = state.shiftQuotas || {};
+    staffPositions = state.staffPositions || {};
+    scheduleHistory = Array.isArray(state.scheduleHistory) ? state.scheduleHistory : [];
+
+    if (state.scheduleDateRange) {
+        localStorage.setItem('scheduleDateRange', JSON.stringify(state.scheduleDateRange));
+    } else {
+        localStorage.removeItem('scheduleDateRange');
+    }
+
+    localStorage.setItem('availabilities', JSON.stringify(availabilities));
+    localStorage.setItem('shiftQuotas', JSON.stringify(shiftQuotas));
+    localStorage.setItem('staffPositions', JSON.stringify(staffPositions));
+    localStorage.setItem('scheduleHistory', JSON.stringify(scheduleHistory));
+    if (finalSchedule) {
+        localStorage.setItem('finalSchedule', JSON.stringify(finalSchedule));
+    } else {
+        localStorage.removeItem('finalSchedule');
+    }
+
+    const dateInput = document.getElementById('schedule-start-date');
+    if (dateInput && state.scheduleDateRange?.startDate) {
+        dateInput.value = formatDateInputValue(state.scheduleDateRange.startDate);
+    }
+
+    renderRegisterTable();
+    renderConfigTable();
+    if (finalSchedule) {
+        renderFinalScheduleTable();
+    } else {
+        document.getElementById('schedule-table-container').innerHTML =
+            '<div class="text-center py-10 text-gray-500">Chưa có lịch được xếp.</div>';
+    }
+    renderScheduleHistory();
+    renderMonthlyHours();
+}
+
+window.getSharedAppState = getSharedAppState;
+window.applySharedAppState = applySharedAppState;
 
 function getQuota(day, block) {
     if (shiftQuotas[day] && shiftQuotas[day][block] !== undefined) {
@@ -43,6 +98,7 @@ function resetData() {
         availabilities = {};
         finalSchedule = null;
         staffPositions = {};
+        saveData();
         renderRegisterTable();
         document.getElementById('schedule-table-container').innerHTML = 
             `<div class="text-center py-10 text-gray-500">Chưa có lịch được xếp.</div>`;
@@ -130,6 +186,7 @@ function updateScheduleDateRange() {
         startDate: toIsoScheduleDate(startDate),
         endDate: toIsoScheduleDate(endDate)
     }));
+    saveData();
     if (finalSchedule) renderFinalScheduleTable();
 }
 
