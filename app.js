@@ -10,6 +10,8 @@ let currentUser = STAFF_LIST[0].id;
 let availabilities = JSON.parse(localStorage.getItem('availabilities')) || {}; 
 let finalSchedule = JSON.parse(localStorage.getItem('finalSchedule')) || null;
 let shiftQuotas = JSON.parse(localStorage.getItem('shiftQuotas')) || {}; 
+let staffPositions = JSON.parse(localStorage.getItem('staffPositions')) || {};
+let scheduleHistory = JSON.parse(localStorage.getItem('scheduleHistory')) || [];
 let pendingProtectedTab = null;
 const PROTECTED_TABS_UNLOCKED_KEY = 'protectedTabsUnlocked';
 let protectedTabsUnlocked = localStorage.getItem(PROTECTED_TABS_UNLOCKED_KEY) === 'true';
@@ -17,6 +19,8 @@ let protectedTabsUnlocked = localStorage.getItem(PROTECTED_TABS_UNLOCKED_KEY) ==
 function saveData() {
     localStorage.setItem('availabilities', JSON.stringify(availabilities));
     localStorage.setItem('shiftQuotas', JSON.stringify(shiftQuotas));
+    localStorage.setItem('staffPositions', JSON.stringify(staffPositions));
+    localStorage.setItem('scheduleHistory', JSON.stringify(scheduleHistory));
     if (finalSchedule) localStorage.setItem('finalSchedule', JSON.stringify(finalSchedule));
 }
 
@@ -35,8 +39,10 @@ function resetData() {
     if (confirm("Chỉ xóa Lịch đăng ký và Lịch hoàn chỉnh, giữ nguyên Cấu hình. Đồng ý?")) {
         localStorage.removeItem('availabilities');
         localStorage.removeItem('finalSchedule');
+        localStorage.removeItem('staffPositions');
         availabilities = {};
         finalSchedule = null;
+        staffPositions = {};
         renderRegisterTable();
         document.getElementById('schedule-table-container').innerHTML = 
             `<div class="text-center py-10 text-gray-500">Chưa có lịch được xếp.</div>`;
@@ -47,8 +53,85 @@ document.addEventListener('DOMContentLoaded', () => {
     initStaffSelect();
     renderRegisterTable();
     renderConfigTable(); 
+    const savedDateRange = JSON.parse(localStorage.getItem('scheduleDateRange') || 'null') || (
+        scheduleHistory[0]
+            ? { startDate: scheduleHistory[0].startDate, endDate: scheduleHistory[0].endDate }
+            : null
+    );
+    if (savedDateRange) {
+        document.getElementById('schedule-start-date').value =
+            formatDateInputValue(savedDateRange.startDate || '');
+    }
+    updateScheduleDateRange();
     if (finalSchedule) renderFinalScheduleTable();
+    renderScheduleHistory();
+    renderMonthlyHours();
 });
+
+function formatDateForSchedule(date) {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+}
+
+function parseScheduleDate(value) {
+    const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    const match = isoMatch || /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value);
+    if (!match) return null;
+
+    const year = Number(match[isoMatch ? 1 : 3]);
+    const month = Number(match[isoMatch ? 2 : 2]);
+    const day = Number(match[isoMatch ? 3 : 1]);
+    const date = new Date(year, month - 1, day);
+    if (
+        date.getFullYear() !== year ||
+        date.getMonth() !== month - 1 ||
+        date.getDate() !== day
+    ) return null;
+
+    return date;
+}
+
+function formatDateInputValue(value) {
+    const date = parseScheduleDate(value);
+    return date ? formatDateForSchedule(date) : '';
+}
+
+function toIsoScheduleDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getScheduleHeaderLabel(day, index) {
+    const startDateValue = document.getElementById('schedule-start-date')?.value;
+    if (!startDateValue) return day;
+
+    const startDate = parseScheduleDate(startDateValue);
+    if (!startDate) return day;
+    const displayedDate = new Date(
+        startDate.getFullYear(),
+        startDate.getMonth(),
+        startDate.getDate() + index
+    );
+    return `${day}<br><span class="text-xs font-normal">${formatDateForSchedule(displayedDate)}</span>`;
+}
+
+function updateScheduleDateRange() {
+    const startDate = parseScheduleDate(document.getElementById('schedule-start-date').value);
+    if (!startDate) {
+        if (finalSchedule) renderFinalScheduleTable();
+        return;
+    }
+    const endDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + 6);
+    localStorage.setItem('scheduleDateRange', JSON.stringify({
+        startDate: toIsoScheduleDate(startDate),
+        endDate: toIsoScheduleDate(endDate)
+    }));
+    if (finalSchedule) renderFinalScheduleTable();
+}
 
 function initStaffSelect() {
     const select = document.getElementById('staff-select');
@@ -74,7 +157,7 @@ function switchTab(targetTab) {
 }
 
 function activateTab(targetTab) {
-    const tabs = ['register', 'schedule', 'config'];
+    const tabs = ['register', 'schedule', 'config', 'history', 'monthly-hours'];
     tabs.forEach(tab => {
         const btn = document.getElementById(`tab-${tab}`);
         const view = document.getElementById(`view-${tab}`);
@@ -571,19 +654,204 @@ function getStaffDayShift(staffId, day) {
     return null;
 }
 
+function updateStaffPosition(staffId, day, position) {
+    if (!staffPositions[day]) staffPositions[day] = {};
+    if (position) {
+        staffPositions[day][staffId] = position;
+    } else {
+        delete staffPositions[day][staffId];
+    }
+    saveData();
+}
+
+function saveCurrentScheduleToHistory() {
+    if (!finalSchedule || !Object.values(finalSchedule).some(daySchedule => Object.keys(daySchedule || {}).length > 0)) {
+        alert('Chưa có lịch để lưu vào lịch sử.');
+        return;
+    }
+
+    const startDate = parseScheduleDate(document.getElementById('schedule-start-date').value);
+    if (!startDate) {
+        alert('Vui lòng chọn ngày bắt đầu hợp lệ.');
+        return;
+    }
+    const endDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + 6);
+
+    const savedAt = new Date();
+    scheduleHistory.unshift({
+        id: `${savedAt.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
+        savedAt: savedAt.toISOString(),
+        startDate: toIsoScheduleDate(startDate),
+        endDate: toIsoScheduleDate(endDate),
+        schedule: JSON.parse(JSON.stringify(finalSchedule)),
+        positions: JSON.parse(JSON.stringify(staffPositions)),
+        quotas: JSON.parse(JSON.stringify(shiftQuotas))
+    });
+    saveData();
+    renderScheduleHistory();
+    renderMonthlyHours();
+    alert('Đã lưu lịch vào lịch sử.');
+}
+
+function deleteScheduleHistoryEntry(entryId) {
+    const entry = scheduleHistory.find(item => item.id === entryId);
+    if (!entry) {
+        alert('Không tìm thấy lịch sử cần xóa.');
+        return;
+    }
+
+    if (!confirm('Bạn có chắc muốn xóa lịch đã lưu này không?')) return;
+
+    scheduleHistory = scheduleHistory.filter(item => item.id !== entryId);
+    saveData();
+    renderScheduleHistory();
+    renderMonthlyHours();
+}
+
+function renderScheduleHistory() {
+    const container = document.getElementById('schedule-history-container');
+    if (!container) return;
+
+    if (scheduleHistory.length === 0) {
+        container.innerHTML = '<div class="text-center py-10 text-gray-500">Chưa có lịch nào được lưu. Vào tab “Lịch làm hoàn chỉnh” và bấm “Lưu lịch vào lịch sử”.</div>';
+        return;
+    }
+
+    container.innerHTML = scheduleHistory.map((entry, index) => {
+        const savedDate = new Date(entry.savedAt);
+        const formattedDate = Number.isNaN(savedDate.getTime())
+            ? 'Thời gian không xác định'
+            : savedDate.toLocaleString('vi-VN');
+        const formatScheduleDate = date => {
+            if (!date) return null;
+            const [year, month, day] = date.split('-');
+            return `${day}/${month}/${year}`;
+        };
+        const schedulePeriod = entry.startDate && entry.endDate
+            ? ` — Lịch từ ${formatScheduleDate(entry.startDate)} đến ${formatScheduleDate(entry.endDate)}`
+            : '';
+
+        return `<details class="mb-4 overflow-hidden rounded-lg border border-gray-300" ${index === 0 ? 'open' : ''}>
+            <summary class="cursor-pointer bg-gray-100 px-4 py-3 font-bold">
+                Lịch ${scheduleHistory.length - index}${schedulePeriod} — Lưu lúc ${formattedDate}
+            </summary>
+            <div class="flex justify-end border-b border-gray-300 bg-gray-50 p-3">
+                <button onclick="deleteScheduleHistoryEntry('${entry.id}')"
+                        class="rounded bg-red-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-red-700">
+                    Xóa lịch này
+                </button>
+            </div>
+            <div id="schedule-history-table-${index}" class="overflow-x-auto"></div>
+        </details>`;
+    }).join('');
+    scheduleHistory.forEach((entry, index) => {
+        renderScheduleTable(
+            `schedule-history-table-${index}`,
+            entry.schedule,
+            entry.positions || {},
+            entry.quotas || shiftQuotas,
+            false
+        );
+    });
+}
+
+function renderMonthlyHours() {
+    const container = document.getElementById('monthly-hours-container');
+    if (!container) return;
+
+    const datedEntries = scheduleHistory
+        .filter(entry => entry.startDate && entry.endDate && entry.startDate <= entry.endDate)
+        .slice()
+        .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+    if (datedEntries.length === 0) {
+        container.innerHTML = '<div class="text-center py-10 text-gray-500">Chưa có lịch được lưu kèm khoảng ngày. Lưu lịch trong tab “Lịch làm hoàn chỉnh” để xem tổng giờ theo tháng.</div>';
+        return;
+    }
+
+    const scheduledDays = new Map();
+    datedEntries.forEach(entry => {
+        const [startYear, startMonth, startDay] = entry.startDate.split('-').map(Number);
+        const [endYear, endMonth, endDay] = entry.endDate.split('-').map(Number);
+        const date = new Date(startYear, startMonth - 1, startDay);
+        const endDate = new Date(endYear, endMonth - 1, endDay);
+
+        let dayOffset = 0;
+        while (date <= endDate) {
+            const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            if (!scheduledDays.has(dateKey)) {
+                const dayName = DAYS[dayOffset % DAYS.length];
+                scheduledDays.set(dateKey, {
+                    month: dateKey.slice(0, 7),
+                    shifts: entry.schedule?.[dayName] || {}
+                });
+            }
+            date.setDate(date.getDate() + 1);
+            dayOffset++;
+        }
+    });
+
+    const monthTotals = {};
+    scheduledDays.forEach(({ month, shifts }) => {
+        if (!monthTotals[month]) {
+            monthTotals[month] = Object.fromEntries(STAFF_LIST.map(staff => [staff.id, 0]));
+        }
+        Object.entries(shifts).forEach(([staffId, shift]) => {
+            if (monthTotals[month][staffId] !== undefined && shift) {
+                monthTotals[month][staffId] += shift.end - shift.start;
+            }
+        });
+    });
+
+    const months = Object.keys(monthTotals).sort();
+    container.innerHTML = months.map(month => {
+        const [year, monthNumber] = month.split('-');
+        const rows = STAFF_LIST.map((staff, index) => `
+            <tr>
+                <td class="border border-gray-300 p-2 text-center">${index + 1}</td>
+                <td class="border border-gray-300 p-2 font-semibold">${staff.name}</td>
+                <td class="border border-gray-300 p-2 text-center">${staff.type}</td>
+                <td class="border border-gray-300 p-2 text-center font-bold">${monthTotals[month][staff.id]}h</td>
+            </tr>
+        `).join('');
+        const totalHours = Object.values(monthTotals[month]).reduce((total, hours) => total + hours, 0);
+
+        return `<section class="mb-6 overflow-x-auto">
+            <h3 class="mb-2 text-lg font-bold text-gray-800">Tháng ${monthNumber}/${year}</h3>
+            <table class="w-full min-w-[600px] border-collapse border border-gray-300 text-sm">
+                <thead><tr class="bg-[#521727] text-white">
+                    <th class="border border-gray-300 p-2">STT</th>
+                    <th class="border border-gray-300 p-2 text-left">Nhân viên</th>
+                    <th class="border border-gray-300 p-2">Loại</th>
+                    <th class="border border-gray-300 p-2">Tổng giờ trong tháng</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+                <tfoot><tr class="bg-gray-100 font-bold">
+                    <td class="border border-gray-300 p-2 text-right" colspan="3">Tổng giờ toàn bộ nhân viên</td>
+                    <td class="border border-gray-300 p-2 text-center">${totalHours}h</td>
+                </tr></tfoot>
+            </table>
+        </section>`;
+    }).join('');
+}
+
 // --- HIỂN THỊ BẢNG PIVOT VÀ KIỂM TRA DUNG SAI ---
 function renderFinalScheduleTable() {
-    const container = document.getElementById('schedule-table-container');
-    
+    renderScheduleTable('schedule-table-container', finalSchedule, staffPositions, shiftQuotas, true);
+}
+
+function renderScheduleTable(containerId, scheduleData, positionData, quotaData, editablePositions) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
     let missingAlerts = [];
     DAYS.forEach(day => {
         CORE_BLOCKS.forEach(block => {
-            const required = getQuota(day, block);
+            const required = quotaData[day]?.[block] ?? DEFAULT_QUOTA;
             const [cb_s, cb_e] = parseTime(block);
             let assignedCount = 0;
             
-            if (finalSchedule[day]) {
-                Object.values(finalSchedule[day]).forEach(shift => {
+            if (scheduleData?.[day]) {
+                Object.values(scheduleData[day]).forEach(shift => {
                     if (coversBlock([shift.start, shift.end], cb_s, cb_e)) assignedCount++;
                 });
             }
@@ -608,13 +876,30 @@ function renderFinalScheduleTable() {
     }
 
     let html = alertHtml + `
-        <table class="w-full border-collapse border border-gray-400 text-center text-sm font-medium">
+        <table class="w-max min-w-[1462px] table-fixed border-collapse border border-gray-400 text-center text-sm font-medium">
+            <colgroup>
+                <col style="width: 40px">
+                <col style="width: 120px">
+                ${DAYS.map(() => `
+                    <col style="width: 56px">
+                    <col style="width: 56px">
+                    <col style="width: 64px">
+                `).join('')}
+                <col style="width: 70px">
+            </colgroup>
             <thead>
                 <tr class="bg-[#521727] text-white">
-                    <th class="border border-gray-400 p-2 w-10">STT</th>
-                    <th class="border border-gray-400 p-2 w-36">Tên</th>
-                    ${DAYS.map(day => `<th class="border border-gray-400 p-2" colspan="2">${day}</th>`).join('')}
-                    <th class="border border-gray-400 p-2 w-24">Tổng giờ</th>
+                    <th class="border border-gray-400 p-2" rowspan="2">STT</th>
+                    <th class="border border-gray-400 p-2" rowspan="2">Tên</th>
+                    ${DAYS.map((day, index) => `<th class="border border-gray-400 p-2" colspan="3">${getScheduleHeaderLabel(day, index)}</th>`).join('')}
+                    <th class="border border-gray-400 p-2" rowspan="2">Tổng giờ</th>
+                </tr>
+                <tr class="bg-gray-100 text-gray-800">
+                    ${DAYS.map(() => `
+                        <th class="border border-gray-400 p-1">Từ</th>
+                        <th class="border border-gray-400 p-1">Đến</th>
+                        <th class="border border-gray-400 p-1 text-center">Vị trí</th>
+                    `).join('')}
                 </tr>
             </thead>
             <tbody>`;
@@ -629,16 +914,29 @@ function renderFinalScheduleTable() {
                     <td class="border border-gray-400 p-1 text-gray-900 ${nameBg}">${staff.name}</td>`;
         
         DAYS.forEach(day => {
-            const shift = getStaffDayShift(staff.id, day);
+            const shift = scheduleData?.[day]?.[staff.id];
             
             if (shift) {
                 const hoursWorkedToday = shift.end - shift.start;
                 totalHoursForWeek += hoursWorkedToday;
+                const selectedPosition = positionData[day]?.[staff.id] || '';
+                const positionCellColor = staff.type === 'FT' ? '#d9ead3' : '#ffe599';
+                const positionOptions = ['', 'PTS', 'RTS', 'TN', 'TL', 'ĐGC', 'ĐG']
+                    .map(position => `<option value="${position}" ${position === selectedPosition ? 'selected' : ''}>${position}</option>`)
+                    .join('');
 
                 html += `<td class="border border-gray-400 p-1 bg-white">${shift.start}</td>
-                         <td class="border border-gray-400 p-1 bg-white">${shift.end}</td>`;
+                         <td class="border border-gray-400 p-1 bg-white">${shift.end}</td>
+                         <td class="border border-gray-400 p-1 text-center align-middle" style="background-color: ${positionCellColor}">
+                             <select aria-label="Vị trí ${staff.name} - ${day}"
+                                     ${editablePositions ? `onchange="updateStaffPosition('${staff.id}', '${day}', this.value)"` : 'disabled'}
+                                     class="mx-auto block w-14 rounded border border-gray-300 p-1 text-center" style="background-color: ${positionCellColor}">
+                                 ${positionOptions}
+                             </select>
+                         </td>`;
             } else {
                 html += `<td class="border border-gray-400 p-1 ${emptyBg}"></td>
+                         <td class="border border-gray-400 p-1 ${emptyBg}"></td>
                          <td class="border border-gray-400 p-1 ${emptyBg}"></td>`;
             }
         });

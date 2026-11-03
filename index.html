@@ -29,23 +29,26 @@
             <button id="tab-config" class="flex-1 py-4 font-bold text-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition" onclick="switchTab('config')">
                 🔒 ⚙️ Cấu hình Định mức
             </button>
+            <button id="tab-history" class="flex-1 py-4 font-bold text-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition" onclick="switchTab('history')">
+                Lịch sử lịch
+            </button>
+            <button id="tab-monthly-hours" class="flex-1 py-4 font-bold text-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition" onclick="switchTab('monthly-hours')">
+                Tổng giờ/tháng
+            </button>
         </div>
 
         <div class="p-6">
-            <div class="flex gap-2 mb-4">
-         <!-- Nút Xuất Excel -->
-         <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-sm font-bold shadow transition flex items-center gap-1">
-          📥 Xuất Excel Ca Đăng Ký
-        </button>
-    
-         <!-- Nút Nhập Excel (Ẩn input file đi để làm nút bấm đẹp hơn) -->
-        <label class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm font-bold shadow transition cursor-pointer flex items-center gap-1">
-        📤 Nhập Excel Ca Đăng Ký
-        <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="importFromExcel(event)">
-        </label>
-    </div>
             <!-- TAB 1: ĐĂNG KÝ -->
             <div id="view-register" class="block">
+                <div class="mb-4 flex gap-2">
+                    <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-sm font-bold shadow transition flex items-center gap-1">
+                        📥 Xuất Excel Ca Đăng Ký
+                    </button>
+                    <label class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm font-bold shadow transition cursor-pointer flex items-center gap-1">
+                        📤 Nhập Excel Ca Đăng Ký
+                        <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="importFromExcel(event)">
+                    </label>
+                </div>
                 <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
                     <div>
                         <label class="mr-3 font-semibold">Chọn nhân viên:</label>
@@ -57,13 +60,27 @@
 
             <!-- TAB 2: LỊCH HOÀN CHỈNH -->
             <div id="view-schedule" class="hidden">
-                <div class="mb-4 flex flex-wrap justify-end gap-3">
-                    <button onclick="resetData()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md font-bold shadow transition">
-                        Reset Dữ liệu
-                    </button>
-                    <button onclick="runAutoSchedule()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-bold shadow transition">
-                        Chạy xếp lịch tự động
-                    </button>
+                <div class="mb-4 flex flex-nowrap items-end gap-4 overflow-x-auto">
+                    <div class="flex shrink-0 flex-col gap-1">
+                        <label class="flex flex-col gap-1 text-sm font-semibold">
+                            Lịch từ ngày
+                            <input id="schedule-start-date" type="text" inputmode="numeric"
+                                   placeholder="dd/mm/yyyy" maxlength="10" autocomplete="off"
+                                   onchange="updateScheduleDateRange()" oninput="updateScheduleDateRange()"
+                                   class="rounded border border-gray-300 p-2 font-normal">
+                        </label>
+                    </div>
+                    <div class="flex shrink-0 flex-nowrap gap-3">
+                        <button onclick="saveCurrentScheduleToHistory()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md font-bold shadow transition">
+                            Lưu lịch vào lịch sử
+                        </button>
+                        <button onclick="resetData()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md font-bold shadow transition">
+                            Reset Dữ liệu
+                        </button>
+                        <button onclick="runAutoSchedule()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-bold shadow transition">
+                            Chạy xếp lịch tự động
+                        </button>
+                    </div>
                 </div>
                 <div id="schedule-table-container" class="overflow-x-auto">
                     <div class="text-center py-10 text-gray-500">Chưa có lịch được xếp. Hãy ấn "Chạy xếp lịch tự động" ở phía trên.</div>
@@ -77,6 +94,18 @@
                     <p class="text-sm text-gray-500 mt-1">Sửa số trực tiếp vào bảng. Ô trống sẽ tự động lấy mặc định là ${DEFAULT_QUOTA} người. Dữ liệu được lưu tự động.</p>
                 </div>
                 <div id="config-table-container" class="overflow-x-auto"></div>
+            </div>
+
+            <!-- TAB 4: LỊCH SỬ -->
+            <div id="view-history" class="hidden">
+                <h2 class="mb-4 text-xl font-bold text-gray-800">Lịch đã lưu</h2>
+                <div id="schedule-history-container" class="overflow-x-auto"></div>
+            </div>
+
+            <!-- TAB 5: TỔNG GIỜ THEO THÁNG -->
+            <div id="view-monthly-hours" class="hidden">
+                <h2 class="mb-4 text-xl font-bold text-gray-800">Tổng giờ làm theo tháng</h2>
+                <div id="monthly-hours-container" class="overflow-x-auto"></div>
             </div>
 
         </div>

@@ -36,3 +36,13 @@ const STAFF_LIST = [
 
 const DEFAULT_QUOTA = 2;
 const DEFAULT_TAB_PASSWORD = 'iamgay';
+
+const FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyDbbj7ZvpyrHPdB_cCyHVKPEZfpZxogURk',
+    authDomain: 'lichlamshancha.firebaseapp.com',
+    projectId: 'lichlamshancha',
+    storageBucket: 'lichlamshancha.firebasestorage.app',
+    messagingSenderId: '422707302742',
+    appId: '1:422707302742:web:4ff2cbf4629aa36df4c6f7',
+    measurementId: 'G-1Z2R2M4Y6K'
+};
