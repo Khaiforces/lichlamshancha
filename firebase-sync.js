@@ -123,6 +123,11 @@ window.saveSharedCloudState = state => {
 };
 
 function startCloudSync() {
+    if (!window.ENABLE_CLOUD_SYNC) {
+        window.setCloudSyncStatus('Chế độ local: dữ liệu không đồng bộ lên Firebase.');
+        return;
+    }
+
     initializeCloudSync().catch(error => {
         console.error('Không thể khởi tạo Firebase:', error);
         window.setCloudSyncStatus(

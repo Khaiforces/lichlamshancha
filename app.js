@@ -13,8 +13,12 @@ let shiftQuotas = JSON.parse(localStorage.getItem('shiftQuotas')) || {};
 let staffPositions = JSON.parse(localStorage.getItem('staffPositions')) || {};
 let scheduleHistory = JSON.parse(localStorage.getItem('scheduleHistory')) || [];
 let pendingProtectedTab = null;
+let pendingProtectedScheduleAction = null;
 const PROTECTED_TABS_UNLOCKED_KEY = 'protectedTabsUnlocked';
+const PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY = 'protectedScheduleActionsUnlocked';
 let protectedTabsUnlocked = localStorage.getItem(PROTECTED_TABS_UNLOCKED_KEY) === 'true';
+let protectedScheduleActionsUnlocked =
+    localStorage.getItem(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY) === 'true';
 
 function saveData() {
     localStorage.setItem('availabilities', JSON.stringify(availabilities));
@@ -109,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initScheduleDatePicker();
     renderRegisterTable();
     renderConfigTable(); 
+    updateProtectedScheduleActionButtons();
     const savedDateRange = JSON.parse(localStorage.getItem('scheduleDateRange') || 'null') || (
         scheduleHistory[0]
             ? { startDate: scheduleHistory[0].startDate, endDate: scheduleHistory[0].endDate }
@@ -156,8 +161,7 @@ function formatDateInputValue(value) {
 function initScheduleDatePicker() {
     const daySelect = document.getElementById('schedule-start-day');
     const monthSelect = document.getElementById('schedule-start-month');
-    const yearSelect = document.getElementById('schedule-start-year');
-    if (!daySelect || !monthSelect || !yearSelect) return;
+    if (!daySelect || !monthSelect) return;
 
     daySelect.innerHTML = '<option value="">Ngày</option>' +
         Array.from({ length: 31 }, (_, index) => {
@@ -170,10 +174,6 @@ function initScheduleDatePicker() {
             return `<option value="${value}">${value}</option>`;
         }).join('');
 
-    const currentYear = new Date().getFullYear();
-    const years = Array.from({ length: 11 }, (_, index) => currentYear - 5 + index);
-    yearSelect.innerHTML = '<option value="">Năm</option>' +
-        years.map(year => `<option value="${year}">${year}</option>`).join('');
 }
 
 function setScheduleDatePickerValue(value) {
@@ -181,31 +181,28 @@ function setScheduleDatePickerValue(value) {
     const hiddenInput = document.getElementById('schedule-start-date');
     const daySelect = document.getElementById('schedule-start-day');
     const monthSelect = document.getElementById('schedule-start-month');
-    const yearSelect = document.getElementById('schedule-start-year');
-    if (!hiddenInput || !daySelect || !monthSelect || !yearSelect) return;
+    if (!hiddenInput || !daySelect || !monthSelect) return;
 
     if (!date) {
         hiddenInput.value = '';
         daySelect.value = '';
         monthSelect.value = '';
-        yearSelect.value = '';
         return;
     }
 
     hiddenInput.value = formatDateForSchedule(date);
     daySelect.value = String(date.getDate()).padStart(2, '0');
     monthSelect.value = String(date.getMonth() + 1).padStart(2, '0');
-    yearSelect.value = String(date.getFullYear());
 }
 
 function updateScheduleDateInputFromPicker() {
     const day = document.getElementById('schedule-start-day')?.value;
     const month = document.getElementById('schedule-start-month')?.value;
-    const year = document.getElementById('schedule-start-year')?.value;
     const hiddenInput = document.getElementById('schedule-start-date');
     if (!hiddenInput) return '';
 
-    hiddenInput.value = day && month && year ? `${day}/${month}/${year}` : '';
+    const year = new Date().getFullYear();
+    hiddenInput.value = day && month ? `${day}/${month}/${year}` : '';
     return hiddenInput.value;
 }
 
@@ -256,7 +253,7 @@ function changeUser(userId) {
 }
 
 function switchTab(targetTab) {
-    if (targetTab === 'schedule' || targetTab === 'config') {
+    if (targetTab === 'config') {
         if (protectedTabsUnlocked) {
             activateTab(targetTab);
             return;
@@ -285,6 +282,7 @@ function activateTab(targetTab) {
 
 function openTabPasswordDialog(targetTab) {
     pendingProtectedTab = targetTab;
+    pendingProtectedScheduleAction = null;
     document.getElementById('tab-password-title').textContent = 'Nhập mật khẩu truy cập';
     document.getElementById('tab-password-error').textContent = '';
     document.getElementById('tab-password').value = '';
@@ -296,6 +294,46 @@ function closeTabPasswordDialog() {
     document.getElementById('tab-password-dialog').classList.add('hidden');
     document.getElementById('tab-password-form').reset();
     pendingProtectedTab = null;
+    pendingProtectedScheduleAction = null;
+}
+
+function requestProtectedScheduleAction(action) {
+    if (protectedScheduleActionsUnlocked) {
+        executeProtectedScheduleAction(action);
+        return;
+    }
+
+    pendingProtectedTab = null;
+    pendingProtectedScheduleAction = action;
+    document.getElementById('tab-password-title').textContent = 'Nhập mật khẩu để sử dụng';
+    document.getElementById('tab-password-error').textContent = '';
+    document.getElementById('tab-password').value = '';
+    document.getElementById('tab-password-dialog').classList.remove('hidden');
+    document.getElementById('tab-password').focus();
+}
+
+function updateProtectedScheduleActionButtons() {
+    const buttons = [
+        document.getElementById('schedule-action-schedule'),
+        document.getElementById('schedule-action-reset'),
+        document.getElementById('schedule-action-save')
+    ].filter(Boolean);
+
+    buttons.forEach(button => {
+        button.classList.toggle('opacity-50', !protectedScheduleActionsUnlocked);
+        button.classList.toggle('cursor-not-allowed', !protectedScheduleActionsUnlocked);
+        button.classList.toggle('cursor-pointer', protectedScheduleActionsUnlocked);
+        button.setAttribute('aria-disabled', String(!protectedScheduleActionsUnlocked));
+        button.title = protectedScheduleActionsUnlocked
+            ? 'Đã mở khóa'
+            : 'Nhập mật khẩu để sử dụng';
+    });
+}
+
+function executeProtectedScheduleAction(action) {
+    if (action === 'schedule') runAutoSchedule();
+    if (action === 'reset') resetData();
+    if (action === 'save') saveCurrentScheduleToHistory();
 }
 
 function submitTabPassword(event) {
@@ -308,6 +346,16 @@ function submitTabPassword(event) {
     }
 
     const tabToOpen = pendingProtectedTab;
+    const scheduleAction = pendingProtectedScheduleAction;
+    if (scheduleAction) {
+        protectedScheduleActionsUnlocked = true;
+        localStorage.setItem(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY, 'true');
+        updateProtectedScheduleActionButtons();
+        closeTabPasswordDialog();
+        executeProtectedScheduleAction(scheduleAction);
+        return;
+    }
+
     protectedTabsUnlocked = true;
     localStorage.setItem(PROTECTED_TABS_UNLOCKED_KEY, 'true');
     closeTabPasswordDialog();

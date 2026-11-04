@@ -12,11 +12,108 @@
         input[type=number]::-webkit-outer-spin-button { 
             -webkit-appearance: none; margin: 0; 
         }
+
+        #register-table-container,
+        #config-table-container,
+        #schedule-table-container,
+        #schedule-history-container,
+        #monthly-hours-container {
+            border-radius: 0.75rem;
+        }
+
+        table {
+            border-radius: 0.75rem;
+            overflow: hidden;
+        }
+
+        #schedule-table-container {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        @media (max-width: 768px) and (orientation: landscape) {
+            body {
+                padding: 0;
+            }
+
+            #app-shell {
+                width: 100%;
+                max-width: none;
+                min-height: 100vh;
+                border-radius: 0;
+            }
+
+            #app-shell > div:last-child {
+                padding: 0.75rem;
+            }
+
+            #view-schedule,
+            #schedule-table-container {
+                width: 100%;
+                min-width: 0;
+            }
+
+            #schedule-table-container {
+                padding-bottom: 0.5rem;
+            }
+
+            #schedule-table-container table {
+                width: 100% !important;
+                min-width: 0 !important;
+                table-layout: fixed;
+                font-size: 0.52rem;
+            }
+
+            #schedule-table-container table col {
+                width: 3.9% !important;
+            }
+
+            #schedule-table-container table col:nth-child(1) {
+                width: 3% !important;
+            }
+
+            #schedule-table-container table col:nth-child(2) {
+                width: 10% !important;
+            }
+
+            #schedule-table-container table col:nth-child(24) {
+                width: 5% !important;
+            }
+
+            #schedule-table-container table th,
+            #schedule-table-container table td {
+                min-width: 0 !important;
+                padding: 0.1rem !important;
+                line-height: 1.1;
+                overflow: hidden;
+                word-break: break-word;
+            }
+
+            #schedule-table-container table th:first-child,
+            #schedule-table-container table td:first-child {
+                width: 3% !important;
+            }
+
+            #schedule-table-container table th:nth-child(2),
+            #schedule-table-container table td:nth-child(2) {
+                width: 10% !important;
+            }
+
+            #schedule-table-container table select {
+                width: 100%;
+                min-width: 0;
+                padding: 0;
+                font-size: 0.48rem;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans min-h-screen p-8">
 
-    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+    <div id="app-shell" class="max-w-7xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
         
         <!-- HEADER / TABS -->
         <div class="flex border-b">
@@ -24,7 +121,7 @@
                 Đăng ký ca làm
             </button>
             <button id="tab-schedule" class="flex-1 py-4 font-bold text-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition" onclick="switchTab('schedule')">
-                🔒 Lịch làm hoàn chỉnh
+                Lịch làm hoàn chỉnh
             </button>
             <button id="tab-config" class="flex-1 py-4 font-bold text-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition" onclick="switchTab('config')">
                 🔒 ⚙️ Cấu hình Định mức
@@ -63,9 +160,9 @@
 
             <!-- TAB 2: LỊCH HOÀN CHỈNH -->
             <div id="view-schedule" class="hidden">
-                <div class="mb-4 flex flex-nowrap items-end gap-4 overflow-x-auto">
-                    <div class="flex shrink-0 flex-col gap-1">
-                        <label class="flex flex-col gap-1 text-sm font-semibold">
+                <div class="mb-4 flex flex-nowrap items-center gap-4 overflow-x-auto">
+                    <div class="flex shrink-0 items-center">
+                        <label class="flex items-center gap-2 whitespace-nowrap text-sm font-semibold">
                             Lịch từ ngày
                             <span class="flex items-center gap-1">
                                 <select id="schedule-start-day" aria-label="Ngày bắt đầu"
@@ -75,28 +172,30 @@
                                 <select id="schedule-start-month" aria-label="Tháng bắt đầu"
                                         onchange="updateScheduleDateRange()"
                                         class="rounded border border-gray-300 p-2 font-normal"></select>
-                                <span>/</span>
-                                <select id="schedule-start-year" aria-label="Năm bắt đầu"
-                                        onchange="updateScheduleDateRange()"
-                                        class="rounded border border-gray-300 p-2 font-normal"></select>
                             </span>
                             <input id="schedule-start-date" type="hidden">
                         </label>
                     </div>
-                    <div class="flex shrink-0 flex-nowrap gap-3">
-                        <button onclick="saveCurrentScheduleToHistory()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md font-bold shadow transition">
-                            Lưu lịch vào lịch sử
+                    <div class="flex shrink-0 flex-nowrap overflow-hidden rounded-md shadow">
+                        <button id="schedule-action-schedule" type="button" aria-disabled="true" title="Nhập mật khẩu để sử dụng"
+                                onclick="requestProtectedScheduleAction('schedule')"
+                                class="cursor-not-allowed bg-blue-600 px-5 py-2 font-bold text-white opacity-50 transition">
+                            🤖 AI Scheduling
                         </button>
-                        <button onclick="resetData()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md font-bold shadow transition">
-                            Reset Dữ liệu
+                        <button id="schedule-action-reset" type="button" aria-disabled="true" title="Nhập mật khẩu để sử dụng"
+                                onclick="requestProtectedScheduleAction('reset')"
+                                class="cursor-not-allowed border-l border-white/30 bg-red-500 px-5 py-2 font-bold text-white opacity-50 transition">
+                            Reset
                         </button>
-                        <button onclick="runAutoSchedule()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-bold shadow transition">
-                            Chạy xếp lịch tự động
+                        <button id="schedule-action-save" type="button" aria-disabled="true" title="Nhập mật khẩu để sử dụng"
+                                onclick="requestProtectedScheduleAction('save')"
+                                class="cursor-not-allowed border-l border-white/30 bg-emerald-600 px-5 py-2 font-bold text-white opacity-50 transition">
+                            Lưu lịch
                         </button>
                     </div>
                 </div>
                 <div id="schedule-table-container" class="overflow-x-auto">
-                    <div class="text-center py-10 text-gray-500">Chưa có lịch được xếp. Hãy ấn "Chạy xếp lịch tự động" ở phía trên.</div>
+                    <div class="text-center py-10 text-gray-500">Chưa có lịch được xếp. Hãy ấn "🤖 AI Scheduling" ở phía trên.</div>
                 </div>
             </div>
 
