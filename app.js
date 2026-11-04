@@ -59,9 +59,8 @@ function applySharedAppState(state) {
         localStorage.removeItem('finalSchedule');
     }
 
-    const dateInput = document.getElementById('schedule-start-date');
-    if (dateInput && state.scheduleDateRange?.startDate) {
-        dateInput.value = formatDateInputValue(state.scheduleDateRange.startDate);
+    if (state.scheduleDateRange?.startDate) {
+        setScheduleDatePickerValue(state.scheduleDateRange.startDate);
     }
 
     renderRegisterTable();
@@ -107,6 +106,7 @@ function resetData() {
 
 document.addEventListener('DOMContentLoaded', () => {
     initStaffSelect();
+    initScheduleDatePicker();
     renderRegisterTable();
     renderConfigTable(); 
     const savedDateRange = JSON.parse(localStorage.getItem('scheduleDateRange') || 'null') || (
@@ -115,8 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
             : null
     );
     if (savedDateRange) {
-        document.getElementById('schedule-start-date').value =
-            formatDateInputValue(savedDateRange.startDate || '');
+        setScheduleDatePickerValue(savedDateRange.startDate || '');
     }
     updateScheduleDateRange();
     if (finalSchedule) renderFinalScheduleTable();
@@ -154,6 +153,62 @@ function formatDateInputValue(value) {
     return date ? formatDateForSchedule(date) : '';
 }
 
+function initScheduleDatePicker() {
+    const daySelect = document.getElementById('schedule-start-day');
+    const monthSelect = document.getElementById('schedule-start-month');
+    const yearSelect = document.getElementById('schedule-start-year');
+    if (!daySelect || !monthSelect || !yearSelect) return;
+
+    daySelect.innerHTML = '<option value="">Ngày</option>' +
+        Array.from({ length: 31 }, (_, index) => {
+            const value = String(index + 1).padStart(2, '0');
+            return `<option value="${value}">${value}</option>`;
+        }).join('');
+    monthSelect.innerHTML = '<option value="">Tháng</option>' +
+        Array.from({ length: 12 }, (_, index) => {
+            const value = String(index + 1).padStart(2, '0');
+            return `<option value="${value}">${value}</option>`;
+        }).join('');
+
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({ length: 11 }, (_, index) => currentYear - 5 + index);
+    yearSelect.innerHTML = '<option value="">Năm</option>' +
+        years.map(year => `<option value="${year}">${year}</option>`).join('');
+}
+
+function setScheduleDatePickerValue(value) {
+    const date = parseScheduleDate(value);
+    const hiddenInput = document.getElementById('schedule-start-date');
+    const daySelect = document.getElementById('schedule-start-day');
+    const monthSelect = document.getElementById('schedule-start-month');
+    const yearSelect = document.getElementById('schedule-start-year');
+    if (!hiddenInput || !daySelect || !monthSelect || !yearSelect) return;
+
+    if (!date) {
+        hiddenInput.value = '';
+        daySelect.value = '';
+        monthSelect.value = '';
+        yearSelect.value = '';
+        return;
+    }
+
+    hiddenInput.value = formatDateForSchedule(date);
+    daySelect.value = String(date.getDate()).padStart(2, '0');
+    monthSelect.value = String(date.getMonth() + 1).padStart(2, '0');
+    yearSelect.value = String(date.getFullYear());
+}
+
+function updateScheduleDateInputFromPicker() {
+    const day = document.getElementById('schedule-start-day')?.value;
+    const month = document.getElementById('schedule-start-month')?.value;
+    const year = document.getElementById('schedule-start-year')?.value;
+    const hiddenInput = document.getElementById('schedule-start-date');
+    if (!hiddenInput) return '';
+
+    hiddenInput.value = day && month && year ? `${day}/${month}/${year}` : '';
+    return hiddenInput.value;
+}
+
 function toIsoScheduleDate(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -176,7 +231,7 @@ function getScheduleHeaderLabel(day, index) {
 }
 
 function updateScheduleDateRange() {
-    const startDate = parseScheduleDate(document.getElementById('schedule-start-date').value);
+    const startDate = parseScheduleDate(updateScheduleDateInputFromPicker());
     if (!startDate) {
         if (finalSchedule) renderFinalScheduleTable();
         return;

@@ -67,10 +67,20 @@
                     <div class="flex shrink-0 flex-col gap-1">
                         <label class="flex flex-col gap-1 text-sm font-semibold">
                             Lịch từ ngày
-                            <input id="schedule-start-date" type="text" inputmode="numeric"
-                                   placeholder="dd/mm/yyyy" maxlength="10" autocomplete="off"
-                                   onchange="updateScheduleDateRange()" oninput="updateScheduleDateRange()"
-                                   class="rounded border border-gray-300 p-2 font-normal">
+                            <span class="flex items-center gap-1">
+                                <select id="schedule-start-day" aria-label="Ngày bắt đầu"
+                                        onchange="updateScheduleDateRange()"
+                                        class="rounded border border-gray-300 p-2 font-normal"></select>
+                                <span>/</span>
+                                <select id="schedule-start-month" aria-label="Tháng bắt đầu"
+                                        onchange="updateScheduleDateRange()"
+                                        class="rounded border border-gray-300 p-2 font-normal"></select>
+                                <span>/</span>
+                                <select id="schedule-start-year" aria-label="Năm bắt đầu"
+                                        onchange="updateScheduleDateRange()"
+                                        class="rounded border border-gray-300 p-2 font-normal"></select>
+                            </span>
+                            <input id="schedule-start-date" type="hidden">
                         </label>
                     </div>
                     <div class="flex shrink-0 flex-nowrap gap-3">
