@@ -36,7 +36,7 @@ const STAFF_LIST = [
 
 const DEFAULT_QUOTA = 2;
 const DEFAULT_TAB_PASSWORD = 'iamgay';
-const ENABLE_CLOUD_SYNC = false;
+const ENABLE_CLOUD_SYNC = true;
 
 const FIREBASE_CONFIG = {
     apiKey: 'AIzaSyDbbj7ZvpyrHPdB_cCyHVKPEZfpZxogURk',
