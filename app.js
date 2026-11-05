@@ -59,6 +59,14 @@ async function requestLandscapeOrientation() {
             return;
         }
 
+        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+            try {
+                await document.documentElement.requestFullscreen();
+            } catch (fullscreenError) {
+                console.warn('Không thể bật chế độ toàn màn hình:', fullscreenError);
+            }
+        }
+
         try {
             await screen.orientation.lock('landscape-primary');
         } catch (primaryError) {
@@ -74,6 +82,7 @@ async function requestLandscapeOrientation() {
 
 window.addEventListener('resize', updateOrientationPrompt);
 window.addEventListener('orientationchange', updateOrientationPrompt);
+document.addEventListener('fullscreenchange', updateOrientationPrompt);
 
 function saveData() {
     const nextState = getSharedAppState();
