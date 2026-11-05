@@ -52,29 +52,8 @@ function updateOrientationPrompt() {
     prompt.classList.toggle('orientation-prompt-visible', mainInterfaceEntered && isPortraitPhone());
 }
 
-async function requestLandscapeOrientation() {
-    try {
-        if (!screen.orientation?.lock) {
-            updateOrientationPrompt();
-            return;
-        }
-
-        try {
-            await screen.orientation.lock('landscape-primary');
-        } catch (primaryError) {
-            await screen.orientation.lock('landscape');
-        }
-
-        updateOrientationPrompt();
-    } catch (error) {
-        console.warn('Thiết bị không hỗ trợ tự xoay màn hình:', error);
-        updateOrientationPrompt();
-    }
-}
-
 window.addEventListener('resize', updateOrientationPrompt);
 window.addEventListener('orientationchange', updateOrientationPrompt);
-document.addEventListener('fullscreenchange', updateOrientationPrompt);
 
 function saveData() {
     const nextState = getSharedAppState();
