@@ -54,22 +54,20 @@ function updateOrientationPrompt() {
 
 async function requestLandscapeOrientation() {
     try {
-        const appShell = document.getElementById('app-shell');
-        if (document.fullscreenElement !== appShell && appShell?.requestFullscreen) {
-            await appShell.requestFullscreen();
+        if (!screen.orientation?.lock) {
+            updateOrientationPrompt();
+            return;
         }
 
-        if (screen.orientation?.lock) {
-            await screen.orientation.lock('landscape-primary');
-        }
-    } catch (error) {
         try {
-            if (screen.orientation?.lock) {
-                await screen.orientation.lock('landscape');
-            }
-        } catch (fallbackError) {
-            console.warn('Thiết bị không hỗ trợ tự xoay màn hình:', fallbackError);
+            await screen.orientation.lock('landscape-primary');
+        } catch (primaryError) {
+            await screen.orientation.lock('landscape');
         }
+
+        updateOrientationPrompt();
+    } catch (error) {
+        console.warn('Thiết bị không hỗ trợ tự xoay màn hình:', error);
         updateOrientationPrompt();
     }
 }
