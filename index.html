@@ -34,9 +34,494 @@
             -webkit-overflow-scrolling: touch;
         }
 
-        @media (max-width: 768px) and (orientation: landscape) {
+        #welcome-screen {
+            background:
+                radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.26) 0 2px, transparent 3px),
+                radial-gradient(circle at 85% 30%, rgba(255, 255, 255, 0.2) 0 3px, transparent 4px),
+                linear-gradient(135deg, #5b2635 0%, #8e4653 48%, #f1b6a8 100%);
+            background-size: 130px 130px, 170px 170px, auto;
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        body {
+            background:
+                radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.26) 0 2px, transparent 3px),
+                radial-gradient(circle at 85% 30%, rgba(255, 255, 255, 0.2) 0 3px, transparent 4px),
+                linear-gradient(135deg, #71394a 0%, #a96270 48%, #f6c8bd 100%);
+            background-size: 130px 130px, 170px 170px, auto;
+            background-attachment: fixed;
+        }
+
+        #app-shell {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            box-shadow: 0 24px 70px rgba(48, 13, 27, 0.28);
+            -webkit-backdrop-filter: blur(22px);
+            backdrop-filter: blur(22px);
+        }
+
+        #app-shell > .border-b {
+            gap: 0.5rem;
+            padding: 0.5rem;
+            border-color: rgba(255, 255, 255, 0.24);
+            background: rgba(255, 255, 255, 0.12);
+            overflow-x: hidden;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        #app-shell > .border-b::-webkit-scrollbar {
+            display: none;
+        }
+
+        #app-shell > .border-b > button {
+            flex: 1 1 0;
+            min-width: 0;
+            max-width: none;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            border-radius: 9999px;
+            background-color: rgba(255, 255, 255, 0.12) !important;
+            color: rgba(255, 255, 255, 0.88) !important;
+            text-align: center;
+            text-shadow: 0 1px 3px rgba(48, 13, 27, 0.24);
+            box-shadow: 0 4px 12px rgba(48, 13, 27, 0.1);
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            white-space: normal;
+            line-height: 1.2;
+        }
+
+        #app-shell > .border-b > button.bg-blue-600,
+        #app-shell > .border-b > button.bg-green-600 {
+            background-color: rgba(82, 23, 39, 0.66) !important;
+            color: #fff !important;
+            border-color: rgba(255, 255, 255, 0.42);
+            box-shadow: 0 7px 16px rgba(48, 13, 27, 0.2);
+        }
+
+        #app-shell > .border-b > button.tab-pudding {
+            animation: tab-pudding-bounce 0.62s cubic-bezier(0.2, 0.85, 0.35, 1.35);
+            transform-origin: center bottom;
+            z-index: 1;
+            box-shadow: 0 10px 20px rgba(48, 13, 27, 0.26);
+        }
+
+        @keyframes tab-pudding-bounce {
+            0% {
+                transform: translateY(0) scale(1, 1);
+            }
+            28% {
+                transform: translateY(-0.45rem) scale(1.08, 0.88);
+            }
+            52% {
+                transform: translateY(0.08rem) scale(0.94, 1.08);
+            }
+            74% {
+                transform: translateY(-0.16rem) scale(1.03, 0.97);
+            }
+            100% {
+                transform: translateY(0) scale(1, 1);
+            }
+        }
+
+        #app-shell > .p-6 {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        #cloud-sync-status {
+            color: rgba(255, 255, 255, 0.82);
+        }
+
+        #app-shell table {
+            background: rgba(255, 255, 255, 0.78);
+            box-shadow: 0 12px 30px rgba(48, 13, 27, 0.12);
+        }
+
+        #app-shell input,
+        #app-shell select {
+            background-color: rgba(255, 255, 255, 0.78);
+            border-color: rgba(82, 23, 39, 0.2);
+        }
+
+        .schedule-date-select,
+        .schedule-date-select option {
+            color: #374151 !important;
+            background-color: #fff;
+            color-scheme: light;
+        }
+
+        .schedule-date-label {
+            font-size: 0.65rem;
+            line-height: 1;
+        }
+
+        #app-shell h2,
+        #app-shell h3,
+        #app-shell label {
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(48, 13, 27, 0.28);
+        }
+
+        #welcome-card {
+            animation: welcome-card-in 0.65s ease-out both;
+        }
+
+        #welcome-card {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        #welcome-card::-webkit-scrollbar {
+            display: none;
+        }
+
+        #orientation-prompt {
+            display: none;
+        }
+
+        #orientation-prompt.orientation-prompt-visible {
+            display: flex;
+        }
+
+        @media (min-width: 769px), (orientation: landscape) {
+            #orientation-prompt.orientation-prompt-visible {
+                display: none;
+            }
+        }
+
+        #orientation-prompt-card {
+            border: 2px solid rgba(254, 202, 202, 0.8);
+            background:
+                radial-gradient(circle at 50% -20%, rgba(251, 146, 60, 0.55), transparent 58%),
+                linear-gradient(145deg, #7f1d1d, #45101a 76%);
+            box-shadow: 0 18px 45px rgba(69, 10, 20, 0.4);
+        }
+
+        #tab-password-dialog {
+            background: rgba(37, 8, 15, 0.72);
+            backdrop-filter: blur(7px);
+            -webkit-backdrop-filter: blur(7px);
+        }
+
+        #tab-password-card {
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #ef4444;
+            background:
+                radial-gradient(circle at 50% -25%, rgba(251, 146, 60, 0.5), transparent 55%),
+                linear-gradient(145deg, #7f1d1d, #45101a 72%);
+            box-shadow: 0 22px 55px rgba(69, 10, 20, 0.55), 0 0 0 5px rgba(239, 68, 68, 0.14);
+            animation: password-card-in 0.3s ease-out both;
+        }
+
+        #tab-password-card::before,
+        #tab-password-card::after {
+            position: absolute;
+            top: 0.75rem;
+            color: rgba(254, 202, 202, 0.28);
+            content: '⚡';
+            font-size: 1.4rem;
+        }
+
+        #tab-password-card::before {
+            left: 1rem;
+            transform: rotate(-18deg);
+        }
+
+        #tab-password-card::after {
+            right: 1rem;
+            transform: rotate(18deg);
+        }
+
+        #tab-password-card.wrong-password {
+            animation: password-card-shake 0.35s ease-in-out;
+        }
+
+        #tab-password-card h2 {
+            color: #fee2e2;
+            letter-spacing: 0.02em;
+            text-shadow: 0 2px 0 #450a0a;
+        }
+
+        #tab-password-card .password-face {
+            display: grid;
+            width: 4.25rem;
+            height: 4.25rem;
+            margin: 0 auto 0.75rem;
+            place-items: center;
+            border: 2px solid #fecaca;
+            border-radius: 9999px;
+            background: #ef4444;
+            box-shadow: inset 0 -5px 0 rgba(127, 29, 29, 0.35), 0 8px 18px rgba(0, 0, 0, 0.25);
+            font-size: 2.2rem;
+        }
+
+        #tab-password-card #tab-password {
+            border: 2px solid #fca5a5;
+            background: rgba(255, 255, 255, 0.96);
+            color: #450a0a;
+            box-shadow: inset 0 2px 4px rgba(69, 10, 20, 0.12);
+        }
+
+        #tab-password-card #tab-password:focus {
+            border-color: #fed7aa;
+            box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.35);
+        }
+
+        #tab-password-card button {
+            min-width: 2.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+        }
+
+        #motivation-rain {
+            position: fixed;
+            inset: 0;
+            z-index: 80;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .motivation-rain-word {
+            position: absolute;
+            top: -4rem;
+            color: #fee2e2;
+            font-size: clamp(1.1rem, 3vw, 2.4rem);
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            line-height: 1;
+            opacity: 0;
+            text-shadow: 0 3px 0 #991b1b, 0 5px 12px rgba(69, 10, 20, 0.45);
+            white-space: nowrap;
+            animation: motivation-word-fall 2.2s ease-in forwards;
+        }
+
+        @keyframes password-card-in {
+            from {
+                opacity: 0;
+                transform: translateY(10px) scale(0.94);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes password-card-shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px) rotate(-1deg); }
+            75% { transform: translateX(8px) rotate(1deg); }
+        }
+
+        @keyframes motivation-word-fall {
+            0% {
+                opacity: 0;
+                transform: translate3d(0, -2rem, 0) rotate(-8deg) scale(0.8);
+            }
+            12% {
+                opacity: 1;
+            }
+            82% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+                transform: translate3d(0, 115vh, 0) rotate(8deg) scale(1.05);
+            }
+        }
+
+        #welcome-screen.welcome-closing {
+            animation: welcome-screen-out 0.55s ease-in forwards;
+            pointer-events: none;
+        }
+
+        #welcome-screen.welcome-closing #welcome-card {
+            animation: welcome-card-out 0.55s ease-in forwards;
+        }
+
+        #app-shell.main-entering {
+            animation: main-interface-in 0.65s ease-out both;
+        }
+
+        #schedule-fullscreen-toggle {
+            flex: 0 0 auto;
+            width: 2.75rem;
+            height: 2.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            border-radius: 0.5rem;
+            background: rgba(82, 23, 39, 0.72);
+            color: #fff;
+            font-size: 1.35rem;
+            line-height: 1;
+            box-shadow: 0 4px 12px rgba(48, 13, 27, 0.16);
+        }
+
+        #schedule-fullscreen-toggle:hover {
+            background: rgba(82, 23, 39, 0.9);
+        }
+
+        #app-shell.schedule-fullscreen {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            width: 100vw;
+            max-width: none;
+            min-height: 100vh;
+            margin: 0;
+            border-radius: 0;
+            overflow: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        #app-shell.schedule-fullscreen::-webkit-scrollbar,
+        #app-shell.schedule-fullscreen #schedule-table-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        body.schedule-fullscreen-active {
+            overflow: hidden;
+        }
+
+        #app-shell.schedule-fullscreen > .border-b,
+        #app-shell.schedule-fullscreen #cloud-sync-status,
+        #app-shell.schedule-fullscreen #view-register,
+        #app-shell.schedule-fullscreen #view-config,
+        #app-shell.schedule-fullscreen #view-history,
+        #app-shell.schedule-fullscreen #view-monthly-hours {
+            display: none;
+        }
+
+        #app-shell.schedule-fullscreen > .p-6 {
+            min-height: 100vh;
+            padding: 1.25rem;
+        }
+
+        #app-shell.schedule-fullscreen #view-schedule {
+            display: block;
+            height: calc(100vh - 2.5rem);
+        }
+
+        #app-shell.schedule-fullscreen #view-schedule > div:first-child {
+            display: none;
+        }
+
+        #app-shell.schedule-fullscreen #schedule-table-container {
+            width: 100%;
+            max-width: none;
+            height: 100%;
+            max-height: 100%;
+            overflow: auto;
+            border-radius: 0;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        #app-shell.schedule-fullscreen #schedule-table-container table {
+            width: 100%;
+            max-width: none;
+        }
+
+        #app-shell.schedule-fullscreen #schedule-fullscreen-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 2;
+        }
+
+        @keyframes welcome-card-in {
+            from {
+                opacity: 0;
+                transform: translateY(18px) scale(0.97);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes welcome-screen-out {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+            }
+        }
+
+        @keyframes welcome-card-out {
+            from {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-12px) scale(0.96);
+            }
+        }
+
+        @keyframes main-interface-in {
+            from {
+                opacity: 0;
+                transform: translateY(14px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 1024px) and (orientation: landscape) {
             body {
                 padding: 0;
+                overflow-x: hidden;
+            }
+
+            #welcome-screen {
+                align-items: center;
+                justify-content: center;
+                min-height: 100dvh;
+                padding: 0.75rem;
+                overflow-x: hidden;
+                overflow-y: auto;
+            }
+
+            #welcome-card {
+                flex: 0 0 auto;
+                width: min(32rem, calc(100vw - 1.5rem));
+                box-sizing: border-box;
+                margin-left: auto;
+                margin-right: auto;
+                max-height: calc(100dvh - 1.5rem);
+                padding: 1.25rem;
+                overflow-y: auto;
+                overflow-x: hidden;
+            }
+
+            #welcome-card > div:first-child {
+                height: 5rem;
+                margin-bottom: 0.5rem;
+            }
+
+            #welcome-card > h1 {
+                margin-bottom: 1rem;
+                font-size: 1.75rem;
+                line-height: 1.1;
+            }
+
+            #welcome-card > div:nth-of-type(2) {
+                height: 4.5rem;
+                margin-bottom: 0.75rem;
+            }
+
+            #welcome-card > div:nth-of-type(2) img {
+                height: 4.5rem;
+            }
+
+            #welcome-card > div:nth-of-type(2) img:nth-child(2) {
+                height: 5.25rem;
             }
 
             #app-shell {
@@ -54,6 +539,8 @@
             #schedule-table-container {
                 width: 100%;
                 min-width: 0;
+                max-width: 100%;
+                overflow-x: hidden;
             }
 
             #schedule-table-container {
@@ -62,13 +549,26 @@
 
             #schedule-table-container table {
                 width: 100% !important;
+                max-width: 100% !important;
                 min-width: 0 !important;
                 table-layout: fixed;
-                font-size: 0.52rem;
+                font-size: 0.44rem;
+            }
+
+            #schedule-table-container .schedule-overview-table col {
+                width: 10% !important;
+            }
+
+            #schedule-table-container .schedule-overview-table col:nth-child(1) {
+                width: 4% !important;
+            }
+
+            #schedule-table-container .schedule-overview-table col:nth-child(2) {
+                width: 16% !important;
             }
 
             #schedule-table-container table col {
-                width: 3.9% !important;
+                width: 3.81% !important;
             }
 
             #schedule-table-container table col:nth-child(1) {
@@ -76,7 +576,7 @@
             }
 
             #schedule-table-container table col:nth-child(2) {
-                width: 10% !important;
+                width: 12% !important;
             }
 
             #schedule-table-container table col:nth-child(24) {
@@ -86,10 +586,11 @@
             #schedule-table-container table th,
             #schedule-table-container table td {
                 min-width: 0 !important;
-                padding: 0.1rem !important;
-                line-height: 1.1;
+                padding: 0.08rem 0.04rem !important;
+                line-height: 1;
                 overflow: hidden;
                 word-break: break-word;
+                white-space: normal;
             }
 
             #schedule-table-container table th:first-child,
@@ -99,21 +600,78 @@
 
             #schedule-table-container table th:nth-child(2),
             #schedule-table-container table td:nth-child(2) {
-                width: 10% !important;
+                width: 12% !important;
+            }
+
+            #schedule-table-container .schedule-overview-table th:nth-child(2),
+            #schedule-table-container .schedule-overview-table td:nth-child(2) {
+                width: 16% !important;
             }
 
             #schedule-table-container table select {
                 width: 100%;
                 min-width: 0;
-                padding: 0;
-                font-size: 0.48rem;
+                height: 1rem;
+                padding: 0 !important;
+                font-size: 0.4rem;
+                line-height: 1;
             }
+
+            #schedule-table-container .schedule-date-label {
+                font-size: 0.42rem;
+            }
+        }
+
+        #app-shell.schedule-fullscreen #schedule-table-container table {
+            table-layout: auto !important;
+            font-size: 0.8rem !important;
+        }
+
+        #app-shell.schedule-fullscreen #schedule-table-container table th,
+        #app-shell.schedule-fullscreen #schedule-table-container table td {
+            min-width: 0 !important;
+            padding: 0.45rem 0.35rem !important;
+            line-height: 1.25 !important;
+            overflow: visible;
+            word-break: normal;
+            white-space: normal;
+        }
+
+        #app-shell.schedule-fullscreen #schedule-table-container table tbody tr {
+            min-height: 2.25rem;
+        }
+
+        #app-shell.schedule-fullscreen #schedule-table-container .schedule-date-label {
+            font-size: 0.65rem !important;
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans min-h-screen p-8">
+<body class="text-gray-800 font-sans min-h-screen p-8">
 
-    <div id="app-shell" class="max-w-7xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+    <div id="welcome-screen" class="fixed inset-0 z-[60] flex min-h-screen items-center justify-center overflow-hidden p-6">
+        <div id="welcome-card" class="w-full max-w-lg rounded-[2rem] border border-white/30 bg-white/95 p-8 text-center shadow-2xl backdrop-blur-sm sm:p-10">
+            <div class="mx-auto mb-5 flex h-40 w-32 items-center justify-center" aria-hidden="true">
+                <img src="./assets/shancha-original.png" alt="Ly trà Shānchá" class="h-full w-full object-contain">
+            </div>
+            <p class="mb-2 text-sm font-bold uppercase tracking-[0.3em] text-[#8e4653]">Shānchá</p>
+            <p class="mb-2 text-lg font-bold text-[#8e4653]">Đậm Trà Thơm Hương</p>
+            <h1 class="mb-8 text-3xl font-black text-[#521727] sm:text-4xl">Hệ thống Xếp lịch</h1>
+            <div class="mb-5 flex h-20 items-end justify-center gap-2" aria-label="Các loại trà sữa Shānchá">
+                <img src="./assets/shancha-dau.png" alt="Trà sữa kem bông dâu" class="h-20 w-14 object-contain">
+                <img src="./assets/shancha-original.png" alt="Trà sữa Shānchá" class="h-24 w-16 object-contain">
+                <img src="./assets/shancha-chuoi.png" alt="Trà sữa kem bông chuối" class="h-20 w-14 object-contain">
+            </div>
+            <button type="button" onclick="continueToMainInterface()"
+                    class="rounded-full bg-[#521727] px-10 py-3 font-bold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-[#6e2639] focus:outline-none focus:ring-4 focus:ring-[#f1b6a8]">
+                Tiếp tục
+            </button>
+        </div>
+        <div class="absolute bottom-4 right-5 text-xs font-medium text-white/55">
+            Dev by Khaiforces
+        </div>
+    </div>
+
+    <div id="app-shell" class="hidden max-w-7xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
         
         <!-- HEADER / TABS -->
         <div class="flex border-b">
@@ -140,15 +698,6 @@
             </p>
             <!-- TAB 1: ĐĂNG KÝ -->
             <div id="view-register" class="block">
-                <div class="mb-4 flex gap-2">
-                    <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-sm font-bold shadow transition flex items-center gap-1">
-                        📥 Xuất Excel Ca Đăng Ký
-                    </button>
-                    <label class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm font-bold shadow transition cursor-pointer flex items-center gap-1">
-                        📤 Nhập Excel Ca Đăng Ký
-                        <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="importFromExcel(event)">
-                    </label>
-                </div>
                 <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
                     <div>
                         <label class="mr-3 font-semibold">Chọn nhân viên:</label>
@@ -167,11 +716,11 @@
                             <span class="flex items-center gap-1">
                                 <select id="schedule-start-day" aria-label="Ngày bắt đầu"
                                         onchange="updateScheduleDateRange()"
-                                        class="rounded border border-gray-300 p-2 font-normal"></select>
+                                        class="schedule-date-select rounded border border-gray-300 p-2 font-normal"></select>
                                 <span>/</span>
                                 <select id="schedule-start-month" aria-label="Tháng bắt đầu"
                                         onchange="updateScheduleDateRange()"
-                                        class="rounded border border-gray-300 p-2 font-normal"></select>
+                                        class="schedule-date-select rounded border border-gray-300 p-2 font-normal"></select>
                             </span>
                             <input id="schedule-start-date" type="hidden">
                         </label>
@@ -193,6 +742,12 @@
                             Lưu lịch
                         </button>
                     </div>
+                    <button id="schedule-fullscreen-toggle" type="button"
+                            aria-label="Mở lịch hoàn chỉnh toàn màn hình"
+                            title="Mở lịch hoàn chỉnh toàn màn hình"
+                            onclick="toggleScheduleFullscreen()">
+                        ⛶
+                    </button>
                 </div>
                 <div id="schedule-table-container" class="overflow-x-auto">
                     <div class="text-center py-10 text-gray-500">Chưa có lịch được xếp. Hãy ấn "🤖 AI Scheduling" ở phía trên.</div>
@@ -201,6 +756,15 @@
 
             <!-- TAB 3: CẤU HÌNH ĐỊNH MỨC QUY TẮC -->
             <div id="view-config" class="hidden">
+                <div class="mb-4 flex gap-2">
+                    <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-sm font-bold shadow transition flex items-center gap-1">
+                        📥 Xuất Excel Ca Đăng Ký
+                    </button>
+                    <label class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm font-bold shadow transition cursor-pointer flex items-center gap-1">
+                        📤 Nhập Excel Ca Đăng Ký
+                        <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="importFromExcel(event)">
+                    </label>
+                </div>
                 <div class="mb-4">
                     <h2 class="text-xl font-bold text-gray-800">Cài đặt số lượng nhân viên cần thiết cho từng ca</h2>
                     <p class="text-sm text-gray-500 mt-1">Sửa số trực tiếp vào bảng. Ô trống sẽ tự động lấy mặc định là ${DEFAULT_QUOTA} người. Dữ liệu được lưu tự động.</p>
@@ -223,28 +787,44 @@
         </div>
     </div>
 
-    <div id="tab-password-dialog" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h2 id="tab-password-title" class="mb-4 text-xl font-bold text-gray-800"></h2>
+    <div id="orientation-prompt" class="fixed inset-0 z-40 items-center justify-center bg-black/45 p-5">
+        <div id="orientation-prompt-card" class="w-full max-w-sm rounded-3xl p-6 text-center text-white">
+            <div class="mb-3 text-5xl" aria-hidden="true">📱↪️</div>
+            <h2 class="mb-2 text-2xl font-black">Xoay màn hình ngang đi ông!</h2>
+            <p class="mb-5 text-sm text-red-100">Để xem lịch rõ và đầy đủ hơn.</p>
+            <button type="button" onclick="requestLandscapeOrientation()"
+                    class="rounded-full bg-orange-400 px-6 py-3 font-black text-red-950 shadow-lg transition hover:bg-orange-300">
+                ↻ Xoay ngang
+            </button>
+        </div>
+    </div>
+
+    <div id="tab-password-dialog" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+         onclick="if (event.target === this) closeTabPasswordDialog()">
+        <div id="tab-password-card" class="w-full max-w-md rounded-2xl p-6 shadow-xl">
+            <div class="password-face" aria-hidden="true">😠</div>
+            <h2 class="mb-4 text-center text-xl font-black">Đi làm đúng giờ đi</h2>
             <form id="tab-password-form" onsubmit="submitTabPassword(event)">
-                <label for="tab-password" class="mb-1 block font-semibold">Mật khẩu</label>
                 <input id="tab-password" type="password" autocomplete="current-password" required
+                       aria-label="Mật khẩu"
                        class="mb-3 w-full rounded border border-gray-300 p-2 outline-none focus:border-blue-500">
-                <p class="mb-3 text-xs text-gray-500">Đây là khóa giao diện phía trình duyệt, không thay thế xác thực bảo mật phía máy chủ.</p>
-                <p id="tab-password-error" class="mb-3 text-sm text-red-600" role="alert"></p>
+                <p id="tab-password-error" class="hidden" role="alert"></p>
                 <div class="flex justify-end gap-2">
                     <button type="button" onclick="closeTabPasswordDialog()"
-                            class="rounded bg-gray-200 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-300">
-                        Hủy
+                           aria-label="Hủy"
+                           class="rounded bg-gray-200 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-300">
+                       ✕
                     </button>
                     <button type="submit"
+                           aria-label="Xác nhận"
                             class="rounded bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700">
-                        Xác nhận
+                       ✓
                     </button>
                 </div>
             </form>
         </div>
     </div>
+    <div id="motivation-rain" aria-hidden="true"></div>
 
     <!-- Nhúng Script -->
     <script src="./config.js"></script>
