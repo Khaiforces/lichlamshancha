@@ -6,7 +6,7 @@ const ALLOWED_OUTPUT_SHIFTS = [
     [15, 23], [17, 23]
 ];
 
-let currentUser = STAFF_LIST[0].id; 
+let currentUser = '';
 let availabilities = JSON.parse(localStorage.getItem('availabilities')) || {}; 
 let finalSchedule = JSON.parse(localStorage.getItem('finalSchedule')) || null;
 let shiftQuotas = JSON.parse(localStorage.getItem('shiftQuotas')) || {}; 
@@ -14,19 +14,72 @@ let staffPositions = JSON.parse(localStorage.getItem('staffPositions')) || {};
 let scheduleHistory = JSON.parse(localStorage.getItem('scheduleHistory')) || [];
 let pendingProtectedTab = null;
 let pendingProtectedScheduleAction = null;
+let lastSavedAppState = null;
+let motivationRainTimeout = null;
+let wrongPasswordAttempts = 0;
+let mainInterfaceEntered = false;
 const PROTECTED_TABS_UNLOCKED_KEY = 'protectedTabsUnlocked';
 const PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY = 'protectedScheduleActionsUnlocked';
 let protectedTabsUnlocked = localStorage.getItem(PROTECTED_TABS_UNLOCKED_KEY) === 'true';
-let protectedScheduleActionsUnlocked =
-    localStorage.getItem(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY) === 'true';
+let protectedScheduleActionsUnlocked = false;
+let positionEditingUnlocked = false;
+
+function continueToMainInterface() {
+    const welcomeScreen = document.getElementById('welcome-screen');
+    const appShell = document.getElementById('app-shell');
+    if (!welcomeScreen || !appShell || welcomeScreen.classList.contains('welcome-closing')) return;
+
+    welcomeScreen.classList.add('welcome-closing');
+    appShell.classList.remove('hidden');
+    appShell.classList.add('main-entering');
+    mainInterfaceEntered = true;
+    updateOrientationPrompt();
+
+    window.setTimeout(() => {
+        welcomeScreen.classList.add('hidden');
+        welcomeScreen.classList.remove('welcome-closing');
+        appShell.classList.remove('main-entering');
+    }, 560);
+}
+
+function isPortraitPhone() {
+    return window.matchMedia('(max-width: 768px) and (orientation: portrait)').matches;
+}
+
+function updateOrientationPrompt() {
+    const prompt = document.getElementById('orientation-prompt');
+    if (!prompt) return;
+    prompt.classList.toggle('orientation-prompt-visible', mainInterfaceEntered && isPortraitPhone());
+}
+
+async function requestLandscapeOrientation() {
+    try {
+        if (screen.orientation?.lock) {
+            await screen.orientation.lock('landscape');
+        } else {
+            updateOrientationPrompt();
+        }
+    } catch (error) {
+        updateOrientationPrompt();
+    }
+}
+
+window.addEventListener('resize', updateOrientationPrompt);
+window.addEventListener('orientationchange', updateOrientationPrompt);
 
 function saveData() {
+    const nextState = getSharedAppState();
+    const changes = getAuditChanges(lastSavedAppState, nextState);
     localStorage.setItem('availabilities', JSON.stringify(availabilities));
     localStorage.setItem('shiftQuotas', JSON.stringify(shiftQuotas));
     localStorage.setItem('staffPositions', JSON.stringify(staffPositions));
     localStorage.setItem('scheduleHistory', JSON.stringify(scheduleHistory));
     if (finalSchedule) localStorage.setItem('finalSchedule', JSON.stringify(finalSchedule));
-    window.saveSharedCloudState?.(getSharedAppState());
+    window.saveSharedCloudState?.(nextState);
+    if (changes.length > 0) {
+        window.writeSharedAuditLog?.(changes);
+    }
+    lastSavedAppState = JSON.parse(JSON.stringify(nextState));
 }
 
 function getSharedAppState() {
@@ -40,12 +93,45 @@ function getSharedAppState() {
     };
 }
 
+function getAuditChanges(previousState, nextState) {
+    if (!previousState) return [];
+
+    const labels = {
+        availabilities: 'Đăng ký ca',
+        finalSchedule: 'Lịch làm hoàn chỉnh',
+        shiftQuotas: 'Cấu hình định mức',
+        staffPositions: 'Vị trí nhân viên',
+        scheduleHistory: 'Lịch sử lịch',
+        scheduleDateRange: 'Khoảng ngày lịch'
+    };
+
+    return Object.keys(labels)
+        .filter(key => stableStringifyForAudit(previousState[key]) !== stableStringifyForAudit(nextState[key]))
+        .map(key => ({
+            section: key,
+            label: labels[key],
+            before: previousState[key] ?? null,
+            after: nextState[key] ?? null
+        }));
+}
+
+function stableStringifyForAudit(value) {
+    if (Array.isArray(value)) return `[${value.map(stableStringifyForAudit).join(',')}]`;
+    if (value && typeof value === 'object') {
+        return `{${Object.keys(value).sort()
+            .map(key => `${JSON.stringify(key)}:${stableStringifyForAudit(value[key])}`)
+            .join(',')}}`;
+    }
+    return JSON.stringify(value);
+}
+
 function applySharedAppState(state) {
     availabilities = state.availabilities || {};
     finalSchedule = state.finalSchedule || null;
     shiftQuotas = state.shiftQuotas || {};
     staffPositions = state.staffPositions || {};
     scheduleHistory = Array.isArray(state.scheduleHistory) ? state.scheduleHistory : [];
+    lastSavedAppState = JSON.parse(JSON.stringify(getSharedAppState()));
 
     if (state.scheduleDateRange) {
         localStorage.setItem('scheduleDateRange', JSON.stringify(state.scheduleDateRange));
@@ -109,6 +195,11 @@ function resetData() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    history.replaceState(
+        { ...(history.state || {}), tab: 'register' },
+        '',
+        window.location.href
+    );
     initStaffSelect();
     initScheduleDatePicker();
     renderRegisterTable();
@@ -122,6 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedDateRange) {
         setScheduleDatePickerValue(savedDateRange.startDate || '');
     }
+    lastSavedAppState = JSON.parse(JSON.stringify(getSharedAppState()));
     updateScheduleDateRange();
     if (finalSchedule) renderFinalScheduleTable();
     renderScheduleHistory();
@@ -224,7 +316,8 @@ function getScheduleHeaderLabel(day, index) {
         startDate.getMonth(),
         startDate.getDate() + index
     );
-    return `${day}<br><span class="text-xs font-normal">${formatDateForSchedule(displayedDate)}</span>`;
+    const shortDate = `${String(displayedDate.getDate()).padStart(2, '0')}/${String(displayedDate.getMonth() + 1).padStart(2, '0')}`;
+    return `${day}<br><span class="schedule-date-label text-[0.65rem] font-normal">${shortDate}</span>`;
 }
 
 function updateScheduleDateRange() {
@@ -244,7 +337,10 @@ function updateScheduleDateRange() {
 
 function initStaffSelect() {
     const select = document.getElementById('staff-select');
-    select.innerHTML = STAFF_LIST.map(staff => `<option value="${staff.id}">${staff.name} - ${staff.type}</option>`).join('');
+    select.innerHTML = `
+        <option value="" selected disabled>Chọn nhân viên</option>
+        ${STAFF_LIST.map(staff => `<option value="${staff.id}">${staff.name} - ${staff.type}</option>`).join('')}
+    `;
 }
 
 function changeUser(userId) {
@@ -253,17 +349,96 @@ function changeUser(userId) {
 }
 
 function switchTab(targetTab) {
+    if (document.getElementById('app-shell')?.classList.contains('schedule-fullscreen') && targetTab !== 'schedule') {
+        toggleScheduleFullscreen(false);
+    }
     if (targetTab === 'config') {
         if (protectedTabsUnlocked) {
-            activateTab(targetTab);
+            navigateToTab(targetTab);
             return;
         }
         openTabPasswordDialog(targetTab);
         return;
     }
 
-    activateTab(targetTab);
+    navigateToTab(targetTab);
 }
+
+function animateTabPudding(targetTab) {
+    const button = document.getElementById(`tab-${targetTab}`);
+    if (!button) return;
+    button.classList.remove('tab-pudding');
+    void button.offsetWidth;
+    button.classList.add('tab-pudding');
+}
+
+function navigateToTab(targetTab) {
+    history.pushState(
+        { ...(history.state || {}), tab: targetTab },
+        '',
+        `${window.location.pathname}${window.location.search}`
+    );
+    activateTab(targetTab);
+    animateTabPudding(targetTab);
+}
+
+function toggleScheduleFullscreen(forceState, fromHistory = false) {
+    const appShell = document.getElementById('app-shell');
+    const toggle = document.getElementById('schedule-fullscreen-toggle');
+    if (!appShell || !toggle) return;
+
+    const wasFullscreen = appShell.classList.contains('schedule-fullscreen');
+    const shouldExpand = typeof forceState === 'boolean'
+        ? forceState
+        : !wasFullscreen;
+
+    if (!wasFullscreen && shouldExpand) {
+        history.pushState(
+            { ...(history.state || {}), scheduleFullscreen: true, tab: 'schedule' },
+            '',
+            `${window.location.pathname}${window.location.search}#schedule-fullscreen`
+        );
+    }
+    if (wasFullscreen && !shouldExpand && history.state?.scheduleFullscreen && !fromHistory) {
+        history.replaceState(
+            { ...(history.state || {}), scheduleFullscreen: false },
+            '',
+            `${window.location.pathname}${window.location.search}`
+        );
+    }
+
+    appShell.classList.toggle('schedule-fullscreen', shouldExpand);
+    document.body.classList.toggle('schedule-fullscreen-active', shouldExpand);
+    toggle.textContent = shouldExpand ? '↙' : '⛶';
+    toggle.setAttribute('aria-label', shouldExpand
+        ? 'Thu nhỏ lịch hoàn chỉnh'
+        : 'Mở lịch hoàn chỉnh toàn màn hình');
+    toggle.title = shouldExpand
+        ? 'Thu nhỏ lịch hoàn chỉnh'
+        : 'Mở lịch hoàn chỉnh toàn màn hình';
+
+    if (wasFullscreen && !shouldExpand) {
+        activateTab('schedule');
+    }
+}
+
+window.addEventListener('popstate', event => {
+    const passwordDialog = document.getElementById('tab-password-dialog');
+    if (!event.state?.passwordDialog && passwordDialog && !passwordDialog.classList.contains('hidden')) {
+        passwordDialog.classList.add('hidden');
+        document.getElementById('tab-password-form')?.reset();
+        stopMotivationRain();
+        pendingProtectedTab = null;
+        pendingProtectedScheduleAction = null;
+    }
+    const appShell = document.getElementById('app-shell');
+    if (appShell?.classList.contains('schedule-fullscreen')) {
+        toggleScheduleFullscreen(false, true);
+    }
+    if (event.state?.tab) {
+        activateTab(event.state.tab);
+    }
+});
 
 function activateTab(targetTab) {
     const tabs = ['register', 'schedule', 'config', 'history', 'monthly-hours'];
@@ -283,18 +458,27 @@ function activateTab(targetTab) {
 function openTabPasswordDialog(targetTab) {
     pendingProtectedTab = targetTab;
     pendingProtectedScheduleAction = null;
-    document.getElementById('tab-password-title').textContent = 'Nhập mật khẩu truy cập';
+    wrongPasswordAttempts = 0;
+    stopMotivationRain();
+    history.pushState({ ...(history.state || {}), passwordDialog: true }, '', window.location.href);
     document.getElementById('tab-password-error').textContent = '';
+    document.getElementById('tab-password-card')?.classList.remove('wrong-password');
     document.getElementById('tab-password').value = '';
     document.getElementById('tab-password-dialog').classList.remove('hidden');
     document.getElementById('tab-password').focus();
 }
 
 function closeTabPasswordDialog() {
-    document.getElementById('tab-password-dialog').classList.add('hidden');
+    const dialog = document.getElementById('tab-password-dialog');
+    const wasOpen = !dialog.classList.contains('hidden');
+    dialog.classList.add('hidden');
     document.getElementById('tab-password-form').reset();
+    stopMotivationRain();
     pendingProtectedTab = null;
     pendingProtectedScheduleAction = null;
+    if (wasOpen && history.state?.passwordDialog) {
+        history.back();
+    }
 }
 
 function requestProtectedScheduleAction(action) {
@@ -305,11 +489,58 @@ function requestProtectedScheduleAction(action) {
 
     pendingProtectedTab = null;
     pendingProtectedScheduleAction = action;
-    document.getElementById('tab-password-title').textContent = 'Nhập mật khẩu để sử dụng';
+    wrongPasswordAttempts = 0;
+    stopMotivationRain();
+    history.pushState({ ...(history.state || {}), passwordDialog: true }, '', window.location.href);
     document.getElementById('tab-password-error').textContent = '';
+    document.getElementById('tab-password-card')?.classList.remove('wrong-password');
     document.getElementById('tab-password').value = '';
     document.getElementById('tab-password-dialog').classList.remove('hidden');
     document.getElementById('tab-password').focus();
+}
+
+function showMotivationRain() {
+    const rain = document.getElementById('motivation-rain');
+    if (!rain) return;
+
+    if (motivationRainTimeout) {
+        window.clearTimeout(motivationRainTimeout);
+        motivationRainTimeout = null;
+    }
+    rain.replaceChildren();
+    const wordCount = wrongPasswordAttempts >= 3
+        ? Math.max(36, Math.min(72, Math.ceil(window.innerWidth / 16)))
+        : Math.max(12, Math.min(24, Math.ceil(window.innerWidth / 42)));
+    const continuousRain = wrongPasswordAttempts >= 3;
+    for (let index = 0; index < wordCount; index += 1) {
+        const word = document.createElement('span');
+        word.className = 'motivation-rain-word';
+        word.textContent = 'CHĂM CHỈ LÊN!';
+        word.style.left = `${Math.random() * 96 + 1}%`;
+        word.style.animationDelay = `${Math.random() * (wrongPasswordAttempts >= 3 ? 0.5 : 0.9)}s`;
+        word.style.animationDuration = `${wrongPasswordAttempts >= 3
+            ? 1.4 + Math.random() * 1.2
+            : 1.7 + Math.random() * 1.1}s`;
+        word.style.animationIterationCount = continuousRain ? 'infinite' : '1';
+        word.style.transform = `rotate(${Math.random() * 24 - 12}deg)`;
+        rain.appendChild(word);
+    }
+
+    if (continuousRain) return;
+
+    motivationRainTimeout = window.setTimeout(() => {
+        rain.replaceChildren();
+        motivationRainTimeout = null;
+    }, 4200);
+}
+
+function stopMotivationRain() {
+    const rain = document.getElementById('motivation-rain');
+    if (motivationRainTimeout) {
+        window.clearTimeout(motivationRainTimeout);
+        motivationRainTimeout = null;
+    }
+    rain?.replaceChildren();
 }
 
 function updateProtectedScheduleActionButtons() {
@@ -328,6 +559,10 @@ function updateProtectedScheduleActionButtons() {
             ? 'Đã mở khóa'
             : 'Nhập mật khẩu để sử dụng';
     });
+
+    if (finalSchedule) {
+        renderFinalScheduleTable();
+    }
 }
 
 function executeProtectedScheduleAction(action) {
@@ -340,16 +575,22 @@ function submitTabPassword(event) {
     event.preventDefault();
     const passwordInput = document.getElementById('tab-password');
     if (passwordInput.value !== DEFAULT_TAB_PASSWORD) {
-        document.getElementById('tab-password-error').textContent = 'Mật khẩu không đúng.';
+        wrongPasswordAttempts += 1;
+        const passwordCard = document.getElementById('tab-password-card');
+        passwordCard?.classList.remove('wrong-password');
+        void passwordCard?.offsetWidth;
+        passwordCard?.classList.add('wrong-password');
+        showMotivationRain();
         passwordInput.select();
         return;
     }
 
+    wrongPasswordAttempts = 0;
+    stopMotivationRain();
     const tabToOpen = pendingProtectedTab;
     const scheduleAction = pendingProtectedScheduleAction;
     if (scheduleAction) {
-        protectedScheduleActionsUnlocked = true;
-        localStorage.setItem(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY, 'true');
+        positionEditingUnlocked = true;
         updateProtectedScheduleActionButtons();
         closeTabPasswordDialog();
         executeProtectedScheduleAction(scheduleAction);
@@ -359,11 +600,15 @@ function submitTabPassword(event) {
     protectedTabsUnlocked = true;
     localStorage.setItem(PROTECTED_TABS_UNLOCKED_KEY, 'true');
     closeTabPasswordDialog();
-    activateTab(tabToOpen);
+    navigateToTab(tabToOpen);
 }
 
 function renderRegisterTable() {
     const container = document.getElementById('register-table-container');
+    if (!currentUser) {
+        container.innerHTML = '<div class="rounded-lg border border-dashed border-gray-300 bg-white/50 px-4 py-10 text-center text-gray-500">Vui lòng chọn nhân viên để xem lịch đăng ký.</div>';
+        return;
+    }
     let html = `<table class="w-full border-collapse border text-center text-sm">
                     <thead>
                         <tr class="bg-gray-100">
@@ -389,6 +634,7 @@ function renderRegisterTable() {
 }
 
 function toggleAvailability(day, shift) {
+    if (!currentUser) return;
     if (!availabilities[currentUser]) availabilities[currentUser] = {};
     if (!availabilities[currentUser][day]) availabilities[currentUser][day] = {};
     availabilities[currentUser][day][shift] = !availabilities[currentUser][day][shift];
@@ -815,6 +1061,10 @@ function getStaffDayShift(staffId, day) {
 }
 
 function updateStaffPosition(staffId, day, position) {
+    if (!positionEditingUnlocked) {
+        renderFinalScheduleTable();
+        return;
+    }
     if (!staffPositions[day]) staffPositions[day] = {};
     if (position) {
         staffPositions[day][staffId] = position;
@@ -850,6 +1100,7 @@ function saveCurrentScheduleToHistory() {
     saveData();
     renderScheduleHistory();
     renderMonthlyHours();
+
     alert('Đã lưu lịch vào lịch sử.');
 }
 
@@ -999,9 +1250,19 @@ function renderFinalScheduleTable() {
     renderScheduleTable('schedule-table-container', finalSchedule, staffPositions, shiftQuotas, true);
 }
 
+let lastScheduleLandscapeMode = null;
+window.addEventListener('resize', () => {
+    const isLandscapeMode = window.matchMedia('(max-width: 1024px) and (orientation: landscape)').matches;
+    if (isLandscapeMode === lastScheduleLandscapeMode || !finalSchedule) return;
+    lastScheduleLandscapeMode = isLandscapeMode;
+    renderFinalScheduleTable();
+});
+
 function renderScheduleTable(containerId, scheduleData, positionData, quotaData, editablePositions) {
     const container = document.getElementById(containerId);
     if (!container) return;
+    const compactSchedule = containerId === 'schedule-table-container'
+        && window.matchMedia('(max-width: 1024px) and (orientation: landscape)').matches;
 
     let missingAlerts = [];
     DAYS.forEach(day => {
@@ -1035,32 +1296,50 @@ function renderScheduleTable(containerId, scheduleData, positionData, quotaData,
                      </div>`;
     }
 
+    const tableClass = compactSchedule
+        ? 'schedule-overview-table w-full min-w-0 table-fixed border-collapse border border-gray-400 text-center text-sm font-medium'
+        : 'w-max min-w-[1462px] table-fixed border-collapse border border-gray-400 text-center text-sm font-medium';
+    const colgroup = compactSchedule
+        ? `<col style="width: 4%">
+           <col style="width: 16%">
+           ${DAYS.map(() => '<col style="width: 10%">').join('')}
+           <col style="width: 10%">`
+        : `<col style="width: 40px">
+           <col style="width: 120px">
+           ${DAYS.map(() => `
+               <col style="width: 56px">
+               <col style="width: 56px">
+               <col style="width: 64px">
+           `).join('')}
+           <col style="width: 70px>`;
+    const header = compactSchedule
+        ? `<tr class="bg-[#521727] text-white">
+               <th class="border border-gray-400 p-2">STT</th>
+               <th class="border border-gray-400 p-2">Tên</th>
+               ${DAYS.map((day, index) => `<th class="border border-gray-400 p-2">${getScheduleHeaderLabel(day, index)}</th>`).join('')}
+               <th class="border border-gray-400 p-2">Tổng giờ</th>
+           </tr>`
+        : `<tr class="bg-[#521727] text-white">
+               <th class="border border-gray-400 p-2" rowspan="2">STT</th>
+               <th class="border border-gray-400 p-2" rowspan="2">Tên</th>
+               ${DAYS.map((day, index) => `<th class="border border-gray-400 p-2" colspan="3">${getScheduleHeaderLabel(day, index)}</th>`).join('')}
+               <th class="border border-gray-400 p-2" rowspan="2">Tổng giờ</th>
+           </tr>
+           <tr class="bg-gray-100 text-gray-800">
+               ${DAYS.map(() => `
+                   <th class="border border-gray-400 p-1">Từ</th>
+                   <th class="border border-gray-400 p-1">Đến</th>
+                   <th class="border border-gray-400 p-1 text-center">Vị trí</th>
+               `).join('')}
+           </tr>`;
+
     let html = alertHtml + `
-        <table class="w-max min-w-[1462px] table-fixed border-collapse border border-gray-400 text-center text-sm font-medium">
+        <table class="${tableClass}">
             <colgroup>
-                <col style="width: 40px">
-                <col style="width: 120px">
-                ${DAYS.map(() => `
-                    <col style="width: 56px">
-                    <col style="width: 56px">
-                    <col style="width: 64px">
-                `).join('')}
-                <col style="width: 70px">
+                ${colgroup}
             </colgroup>
             <thead>
-                <tr class="bg-[#521727] text-white">
-                    <th class="border border-gray-400 p-2" rowspan="2">STT</th>
-                    <th class="border border-gray-400 p-2" rowspan="2">Tên</th>
-                    ${DAYS.map((day, index) => `<th class="border border-gray-400 p-2" colspan="3">${getScheduleHeaderLabel(day, index)}</th>`).join('')}
-                    <th class="border border-gray-400 p-2" rowspan="2">Tổng giờ</th>
-                </tr>
-                <tr class="bg-gray-100 text-gray-800">
-                    ${DAYS.map(() => `
-                        <th class="border border-gray-400 p-1">Từ</th>
-                        <th class="border border-gray-400 p-1">Đến</th>
-                        <th class="border border-gray-400 p-1 text-center">Vị trí</th>
-                    `).join('')}
-                </tr>
+                ${header}
             </thead>
             <tbody>`;
 
@@ -1079,25 +1358,32 @@ function renderScheduleTable(containerId, scheduleData, positionData, quotaData,
             if (shift) {
                 const hoursWorkedToday = shift.end - shift.start;
                 totalHoursForWeek += hoursWorkedToday;
+                if (compactSchedule) {
+                    html += `<td class="border border-gray-400 p-1 bg-white">${shift.start}–${shift.end}</td>`;
+                    return;
+                }
                 const selectedPosition = positionData[day]?.[staff.id] || '';
                 const positionCellColor = staff.type === 'FT' ? '#d9ead3' : '#ffe599';
                 const positionOptions = ['', 'PTS', 'RTS', 'TN', 'TL', 'ĐGC', 'ĐG']
                     .map(position => `<option value="${position}" ${position === selectedPosition ? 'selected' : ''}>${position}</option>`)
                     .join('');
+                const positionLocked = !editablePositions || !positionEditingUnlocked;
 
                 html += `<td class="border border-gray-400 p-1 bg-white">${shift.start}</td>
                          <td class="border border-gray-400 p-1 bg-white">${shift.end}</td>
                          <td class="border border-gray-400 p-1 text-center align-middle" style="background-color: ${positionCellColor}">
                              <select aria-label="Vị trí ${staff.name} - ${day}"
-                                     ${editablePositions ? `onchange="updateStaffPosition('${staff.id}', '${day}', this.value)"` : 'disabled'}
+                                     ${positionLocked ? 'disabled' : `onchange="updateStaffPosition('${staff.id}', '${day}', this.value)"`}
                                      class="mx-auto block w-14 rounded border border-gray-300 p-1 text-center" style="background-color: ${positionCellColor}">
                                  ${positionOptions}
                              </select>
                          </td>`;
             } else {
-                html += `<td class="border border-gray-400 p-1 ${emptyBg}"></td>
-                         <td class="border border-gray-400 p-1 ${emptyBg}"></td>
-                         <td class="border border-gray-400 p-1 ${emptyBg}"></td>`;
+                html += compactSchedule
+                    ? `<td class="border border-gray-400 p-1 ${emptyBg}">—</td>`
+                    : `<td class="border border-gray-400 p-1 ${emptyBg}"></td>
+                       <td class="border border-gray-400 p-1 ${emptyBg}"></td>
+                       <td class="border border-gray-400 p-1 ${emptyBg}"></td>`;
             }
         });
 
