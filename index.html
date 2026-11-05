@@ -17,8 +17,32 @@
         #config-table-container,
         #schedule-table-container,
         #schedule-history-container,
-        #monthly-hours-container {
+        #monthly-hours-container,
+        #expected-schedule-container {
             border-radius: 0.75rem;
+        }
+
+        @media (max-width: 767px) {
+            #register-table-container,
+            #config-table-container,
+            #schedule-table-container,
+            #schedule-history-container,
+            #monthly-hours-container,
+            #expected-schedule-container,
+            .overflow-x-auto {
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+            }
+
+            #register-table-container::-webkit-scrollbar,
+            #config-table-container::-webkit-scrollbar,
+            #schedule-table-container::-webkit-scrollbar,
+            #schedule-history-container::-webkit-scrollbar,
+            #monthly-hours-container::-webkit-scrollbar,
+            #expected-schedule-container::-webkit-scrollbar,
+            .overflow-x-auto::-webkit-scrollbar {
+                display: none;
+            }
         }
 
         table {
@@ -703,8 +727,26 @@
                         <label class="mr-3 font-semibold">Chọn nhân viên:</label>
                         <select id="staff-select" class="border p-2 rounded-md font-medium outline-none cursor-pointer bg-white" onchange="changeUser(this.value)"></select>
                     </div>
+                    <button id="expected-schedule-toggle" type="button" aria-expanded="false"
+                            onclick="toggleExpectedSchedule()"
+                            class="rounded-xl bg-indigo-600 px-4 py-2 font-bold text-white shadow transition hover:bg-indigo-700">
+                        📅 Lịch dự kiến
+                    </button>
                 </div>
                 <div id="register-table-container" class="overflow-x-auto"></div>
+                <div id="expected-schedule-panel" class="mt-6 hidden rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 shadow-inner">
+                    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 class="text-lg font-black text-indigo-900">Lịch dự kiến</h2>
+                            <p class="text-sm text-indigo-700">Danh sách toàn bộ nhân viên đã đăng ký ca.</p>
+                        </div>
+                        <button type="button" onclick="toggleExpectedSchedule(false)"
+                                class="rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-bold text-indigo-700 transition hover:bg-indigo-100">
+                            Đóng
+                        </button>
+                    </div>
+                    <div id="expected-schedule-container" class="overflow-x-auto"></div>
+                </div>
             </div>
 
             <!-- TAB 2: LỊCH HOÀN CHỈNH -->

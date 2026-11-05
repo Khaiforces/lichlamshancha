@@ -54,12 +54,22 @@ function updateOrientationPrompt() {
 
 async function requestLandscapeOrientation() {
     try {
+        const appShell = document.getElementById('app-shell');
+        if (document.fullscreenElement !== appShell && appShell?.requestFullscreen) {
+            await appShell.requestFullscreen();
+        }
+
         if (screen.orientation?.lock) {
-            await screen.orientation.lock('landscape');
-        } else {
-            updateOrientationPrompt();
+            await screen.orientation.lock('landscape-primary');
         }
     } catch (error) {
+        try {
+            if (screen.orientation?.lock) {
+                await screen.orientation.lock('landscape');
+            }
+        } catch (fallbackError) {
+            console.warn('Thiết bị không hỗ trợ tự xoay màn hình:', fallbackError);
+        }
         updateOrientationPrompt();
     }
 }
@@ -604,6 +614,9 @@ function submitTabPassword(event) {
 }
 
 function renderRegisterTable() {
+    if (!document.getElementById('expected-schedule-panel')?.classList.contains('hidden')) {
+        renderExpectedSchedule();
+    }
     const container = document.getElementById('register-table-container');
     if (!currentUser) {
         container.innerHTML = '<div class="rounded-lg border border-dashed border-gray-300 bg-white/50 px-4 py-10 text-center text-gray-500">Vui lòng chọn nhân viên để xem lịch đăng ký.</div>';
@@ -630,6 +643,64 @@ function renderRegisterTable() {
         html += `</tr>`;
     });
     html += `</tbody></table>`;
+    container.innerHTML = html;
+}
+
+function toggleExpectedSchedule(forceState) {
+    const panel = document.getElementById('expected-schedule-panel');
+    const toggle = document.getElementById('expected-schedule-toggle');
+    if (!panel || !toggle) return;
+
+    const shouldShow = typeof forceState === 'boolean'
+        ? forceState
+        : panel.classList.contains('hidden');
+
+    panel.classList.toggle('hidden', !shouldShow);
+    toggle.setAttribute('aria-expanded', String(shouldShow));
+    if (shouldShow) renderExpectedSchedule();
+}
+
+function renderExpectedSchedule() {
+    const container = document.getElementById('expected-schedule-container');
+    if (!container) return;
+
+    const registeredStaff = STAFF_LIST.filter(staff =>
+        DAYS.some(day => SHIFTS.some(shift => availabilities[staff.id]?.[day]?.[shift]))
+    );
+
+    if (registeredStaff.length === 0) {
+        container.innerHTML = '<div class="rounded-xl border border-dashed border-indigo-200 bg-white/70 px-4 py-8 text-center text-indigo-700">Chưa có nhân viên nào đăng ký ca.</div>';
+        return;
+    }
+
+    let html = `<table class="w-full min-w-[980px] border-collapse overflow-hidden rounded-xl border border-indigo-200 bg-white text-center text-sm">
+        <thead>
+            <tr class="bg-indigo-100 text-indigo-900">
+                <th class="border border-indigo-200 p-3 text-left">Nhân viên</th>
+                <th class="border border-indigo-200 p-3">Loại</th>
+                ${DAYS.map(day => `<th class="border border-indigo-200 p-3">${day}</th>`).join('')}
+            </tr>
+        </thead>
+        <tbody>`;
+
+    registeredStaff.forEach(staff => {
+        html += `<tr class="transition hover:bg-indigo-50">
+            <td class="border border-indigo-100 p-3 text-left font-bold text-gray-800">${staff.name}</td>
+            <td class="border border-indigo-100 p-3 font-semibold ${staff.type === 'FT' ? 'text-rose-600' : 'text-emerald-600'}">${staff.type}</td>`;
+
+        DAYS.forEach(day => {
+            const shifts = SHIFTS.filter(shift => availabilities[staff.id]?.[day]?.[shift]);
+            html += `<td class="border border-indigo-100 p-2 align-top">
+                ${shifts.length
+                    ? shifts.map(shift => `<span class="mb-1 block rounded-md bg-green-100 px-2 py-1 text-xs font-semibold text-green-800">${shift}</span>`).join('')
+                    : '<span class="text-gray-400">—</span>'}
+            </td>`;
+        });
+
+        html += '</tr>';
+    });
+
+    html += '</tbody></table>';
     container.innerHTML = html;
 }
 
