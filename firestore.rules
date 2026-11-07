@@ -16,6 +16,7 @@ service cloud.firestore {
           'availabilities',
           'finalSchedule',
           'shiftQuotas',
+          'extraShiftAssignments',
           'staffPositions',
           'scheduleHistory',
           'scheduleDateRange'
@@ -24,6 +25,7 @@ service cloud.firestore {
           'availabilities',
           'finalSchedule',
           'shiftQuotas',
+          'extraShiftAssignments',
           'staffPositions',
           'scheduleHistory',
           'scheduleDateRange'
