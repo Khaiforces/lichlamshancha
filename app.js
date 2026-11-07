@@ -958,6 +958,13 @@ function getWeeklyHours(schedule, staffId) {
     }, 0);
 }
 
+function getExtraShiftBonusHours(staffId) {
+    return (extraShiftAssignments[staffId] || []).reduce((total, optionId) => {
+        const option = EXTRA_SHIFT_OPTIONS.find(item => item.id === optionId);
+        return total + (option?.bonusHours || 0);
+    }, 0);
+}
+
 function scoreSchedule(schedule) {
     let quotaDeficit = 0;
     CORE_BLOCKS.forEach(block => {
@@ -974,10 +981,10 @@ function scoreSchedule(schedule) {
     const ptHours = STAFF_LIST
         .filter(staff => staff.type === 'PT')
         .filter(staff => DAYS.some(day => getMergedAvailabilities(staff.id, day).length > 0))
-        .map(staff => getWeeklyHours(schedule, staff.id));
-    const averageHours = ptHours.reduce((total, hours) => total + hours, 0) / Math.max(1, ptHours.length);
+        .map(staff => getWeeklyHours(schedule, staff.id) - getExtraShiftBonusHours(staff.id));
+    const averageAdjustedHours = ptHours.reduce((total, hours) => total + hours, 0) / Math.max(1, ptHours.length);
     const hourVariance = ptHours.reduce((total, hours) =>
-        total + (hours - averageHours) ** 2, 0
+        total + (hours - averageAdjustedHours) ** 2, 0
     ) / Math.max(1, ptHours.length);
 
     return quotaDeficit * 1000000000 + hourVariance;
@@ -1199,8 +1206,8 @@ function runAutoSchedule() {
 
                     // Cân bằng tổng giờ dự kiến trước; dùng ngày làm và độ linh hoạt để phá hòa.
                     availableCandidates.sort((a, b) => {
-                        let hoursA = weeklyHoursTracker[a.staff.id] + a.duration;
-                        let hoursB = weeklyHoursTracker[b.staff.id] + b.duration;
+                        let hoursA = weeklyHoursTracker[a.staff.id] + a.duration - getExtraShiftBonusHours(a.staff.id);
+                        let hoursB = weeklyHoursTracker[b.staff.id] + b.duration - getExtraShiftBonusHours(b.staff.id);
                         if (hoursA !== hoursB) {
                             return hoursA - hoursB;
                         }

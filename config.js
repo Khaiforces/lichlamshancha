@@ -18,8 +18,8 @@ const CORE_BLOCKS = [
 ];
 
 const EXTRA_SHIFT_OPTIONS = [
-    { id: 'ca5', label: 'Ca 5', shift: '12:00 - 17:00' },
-    { id: 'ca8', label: 'Ca 8', shift: '17:00 - 23:00' }
+    { id: 'ca5', label: 'Ca 5', shift: '12:00 - 17:00', bonusHours: 5 },
+    { id: 'ca8', label: 'Ca 8', shift: '17:00 - 23:00', bonusHours: 8 }
 ];
 
 const STAFF_LIST = [
