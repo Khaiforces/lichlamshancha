@@ -90,6 +90,14 @@ async function initializeCloudSync() {
                     syncReady = true;
                     if (!initialized) {
                         initialized = true;
+                        if (pendingLocalState) {
+                            const pendingState = pendingLocalState;
+                            if (stableStringify(pendingState) !== stableStringify(state)) {
+                                window.saveSharedCloudState(pendingState);
+                            } else {
+                                pendingLocalState = null;
+                            }
+                        }
                         window.setCloudSyncStatus('Đã kết nối dữ liệu chung.');
                         resolve();
                     }
