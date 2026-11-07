@@ -23,7 +23,7 @@ const PROTECTED_TABS_UNLOCKED_KEY = 'protectedTabsUnlocked';
 const PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY = 'protectedScheduleActionsUnlocked';
 let protectedTabsUnlocked = localStorage.getItem(PROTECTED_TABS_UNLOCKED_KEY) === 'true';
 let protectedScheduleActionsUnlocked = localStorage.getItem(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY) === 'true';
-let positionEditingUnlocked = false;
+let positionEditingUnlocked = protectedScheduleActionsUnlocked;
 
 function continueToMainInterface() {
     const welcomeScreen = document.getElementById('welcome-screen');
@@ -476,6 +476,7 @@ function closeTabPasswordDialog() {
 }
 
 function requestProtectedScheduleAction(action) {
+    updateProtectedScheduleActionButtons();
     if (protectedScheduleActionsUnlocked) {
         executeProtectedScheduleAction(action);
         return;
@@ -583,11 +584,12 @@ function submitTabPassword(event) {
     stopMotivationRain();
     const tabToOpen = pendingProtectedTab;
     const scheduleAction = pendingProtectedScheduleAction;
+    protectedScheduleActionsUnlocked = true;
+    positionEditingUnlocked = true;
+    localStorage.setItem(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY, 'true');
+    updateProtectedScheduleActionButtons();
+
     if (scheduleAction) {
-        protectedScheduleActionsUnlocked = true;
-        localStorage.setItem(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY, 'true');
-        positionEditingUnlocked = true;
-        updateProtectedScheduleActionButtons();
         closeTabPasswordDialog();
         executeProtectedScheduleAction(scheduleAction);
         return;
