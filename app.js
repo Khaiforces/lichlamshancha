@@ -21,8 +21,30 @@ let wrongPasswordAttempts = 0;
 let mainInterfaceEntered = false;
 const PROTECTED_TABS_UNLOCKED_KEY = 'protectedTabsUnlocked';
 const PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY = 'protectedScheduleActionsUnlocked';
-let protectedTabsUnlocked = localStorage.getItem(PROTECTED_TABS_UNLOCKED_KEY) === 'true';
-let protectedScheduleActionsUnlocked = localStorage.getItem(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY) === 'true';
+function isProtectedActionUnlocked(key) {
+    try {
+        if (localStorage.getItem(key) === 'true') return true;
+    } catch (error) {
+        console.warn('Không thể đọc trạng thái mở khóa từ localStorage:', error);
+    }
+
+    return document.cookie
+        .split(';')
+        .map(cookie => cookie.trim())
+        .some(cookie => cookie === `${key}=true`);
+}
+
+function persistProtectedActionUnlock(key) {
+    try {
+        localStorage.setItem(key, 'true');
+    } catch (error) {
+        console.warn('Không thể lưu trạng thái mở khóa vào localStorage:', error);
+    }
+    document.cookie = `${key}=true; max-age=31536000; path=/; SameSite=Lax`;
+}
+
+let protectedTabsUnlocked = isProtectedActionUnlocked(PROTECTED_TABS_UNLOCKED_KEY);
+let protectedScheduleActionsUnlocked = isProtectedActionUnlocked(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY);
 let positionEditingUnlocked = protectedScheduleActionsUnlocked;
 
 function continueToMainInterface() {
@@ -478,7 +500,7 @@ function closeTabPasswordDialog() {
 function requestProtectedScheduleAction(action) {
     protectedScheduleActionsUnlocked =
         protectedScheduleActionsUnlocked ||
-        localStorage.getItem(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY) === 'true';
+        isProtectedActionUnlocked(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY);
     positionEditingUnlocked = positionEditingUnlocked || protectedScheduleActionsUnlocked;
     updateProtectedScheduleActionButtons();
     if (protectedScheduleActionsUnlocked) {
@@ -545,7 +567,7 @@ function stopMotivationRain() {
 function updateProtectedScheduleActionButtons() {
     protectedScheduleActionsUnlocked =
         protectedScheduleActionsUnlocked ||
-        localStorage.getItem(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY) === 'true';
+        isProtectedActionUnlocked(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY);
     positionEditingUnlocked = positionEditingUnlocked || protectedScheduleActionsUnlocked;
     const buttons = [
         document.getElementById('schedule-action-schedule'),
@@ -594,7 +616,7 @@ function submitTabPassword(event) {
     const scheduleAction = pendingProtectedScheduleAction;
     protectedScheduleActionsUnlocked = true;
     positionEditingUnlocked = true;
-    localStorage.setItem(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY, 'true');
+    persistProtectedActionUnlock(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY);
     updateProtectedScheduleActionButtons();
 
     if (scheduleAction) {
@@ -604,7 +626,7 @@ function submitTabPassword(event) {
     }
 
     protectedTabsUnlocked = true;
-    localStorage.setItem(PROTECTED_TABS_UNLOCKED_KEY, 'true');
+    persistProtectedActionUnlock(PROTECTED_TABS_UNLOCKED_KEY);
     closeTabPasswordDialog();
     navigateToTab(tabToOpen);
 }
