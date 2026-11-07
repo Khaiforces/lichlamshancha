@@ -476,6 +476,10 @@ function closeTabPasswordDialog() {
 }
 
 function requestProtectedScheduleAction(action) {
+    protectedScheduleActionsUnlocked =
+        protectedScheduleActionsUnlocked ||
+        localStorage.getItem(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY) === 'true';
+    positionEditingUnlocked = positionEditingUnlocked || protectedScheduleActionsUnlocked;
     updateProtectedScheduleActionButtons();
     if (protectedScheduleActionsUnlocked) {
         executeProtectedScheduleAction(action);
@@ -539,6 +543,10 @@ function stopMotivationRain() {
 }
 
 function updateProtectedScheduleActionButtons() {
+    protectedScheduleActionsUnlocked =
+        protectedScheduleActionsUnlocked ||
+        localStorage.getItem(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY) === 'true';
+    positionEditingUnlocked = positionEditingUnlocked || protectedScheduleActionsUnlocked;
     const buttons = [
         document.getElementById('schedule-action-schedule'),
         document.getElementById('schedule-action-reset'),
