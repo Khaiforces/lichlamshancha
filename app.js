@@ -10,6 +10,7 @@ let currentUser = '';
 let availabilities = JSON.parse(localStorage.getItem('availabilities')) || {}; 
 let finalSchedule = JSON.parse(localStorage.getItem('finalSchedule')) || null;
 let shiftQuotas = JSON.parse(localStorage.getItem('shiftQuotas')) || {}; 
+let extraShiftAssignments = JSON.parse(localStorage.getItem('extraShiftAssignments')) || {};
 let staffPositions = JSON.parse(localStorage.getItem('staffPositions')) || {};
 let scheduleHistory = JSON.parse(localStorage.getItem('scheduleHistory')) || [];
 let pendingProtectedTab = null;
@@ -21,7 +22,7 @@ let mainInterfaceEntered = false;
 const PROTECTED_TABS_UNLOCKED_KEY = 'protectedTabsUnlocked';
 const PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY = 'protectedScheduleActionsUnlocked';
 let protectedTabsUnlocked = localStorage.getItem(PROTECTED_TABS_UNLOCKED_KEY) === 'true';
-let protectedScheduleActionsUnlocked = false;
+let protectedScheduleActionsUnlocked = localStorage.getItem(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY) === 'true';
 let positionEditingUnlocked = false;
 
 function continueToMainInterface() {
@@ -60,6 +61,7 @@ function saveData() {
     const changes = getAuditChanges(lastSavedAppState, nextState);
     localStorage.setItem('availabilities', JSON.stringify(availabilities));
     localStorage.setItem('shiftQuotas', JSON.stringify(shiftQuotas));
+    localStorage.setItem('extraShiftAssignments', JSON.stringify(extraShiftAssignments));
     localStorage.setItem('staffPositions', JSON.stringify(staffPositions));
     localStorage.setItem('scheduleHistory', JSON.stringify(scheduleHistory));
     if (finalSchedule) localStorage.setItem('finalSchedule', JSON.stringify(finalSchedule));
@@ -75,6 +77,7 @@ function getSharedAppState() {
         availabilities,
         finalSchedule,
         shiftQuotas,
+        extraShiftAssignments,
         staffPositions,
         scheduleHistory,
         scheduleDateRange: JSON.parse(localStorage.getItem('scheduleDateRange') || 'null')
@@ -117,6 +120,7 @@ function applySharedAppState(state) {
     availabilities = state.availabilities || {};
     finalSchedule = state.finalSchedule || null;
     shiftQuotas = state.shiftQuotas || {};
+    extraShiftAssignments = state.extraShiftAssignments || {};
     staffPositions = state.staffPositions || {};
     scheduleHistory = Array.isArray(state.scheduleHistory) ? state.scheduleHistory : [];
     lastSavedAppState = JSON.parse(JSON.stringify(getSharedAppState()));
@@ -129,6 +133,7 @@ function applySharedAppState(state) {
 
     localStorage.setItem('availabilities', JSON.stringify(availabilities));
     localStorage.setItem('shiftQuotas', JSON.stringify(shiftQuotas));
+    localStorage.setItem('extraShiftAssignments', JSON.stringify(extraShiftAssignments));
     localStorage.setItem('staffPositions', JSON.stringify(staffPositions));
     localStorage.setItem('scheduleHistory', JSON.stringify(scheduleHistory));
     if (finalSchedule) {
@@ -189,6 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href
     );
     initStaffSelect();
+    initExtraShiftControls();
     initScheduleDatePicker();
     renderRegisterTable();
     renderConfigTable(); 
@@ -578,6 +584,8 @@ function submitTabPassword(event) {
     const tabToOpen = pendingProtectedTab;
     const scheduleAction = pendingProtectedScheduleAction;
     if (scheduleAction) {
+        protectedScheduleActionsUnlocked = true;
+        localStorage.setItem(PROTECTED_SCHEDULE_ACTIONS_UNLOCKED_KEY, 'true');
         positionEditingUnlocked = true;
         updateProtectedScheduleActionButtons();
         closeTabPasswordDialog();
@@ -716,6 +724,8 @@ function renderConfigTable() {
     });
     html += `</tbody></table>`;
     container.innerHTML = html;
+    initExtraShiftControls();
+    renderExtraShiftAssignments();
 }
 
 function updateQuota(day, block, value) {
@@ -728,6 +738,112 @@ function updateQuota(day, block, value) {
     saveData();
     renderConfigTable(); 
     if (finalSchedule) renderFinalScheduleTable();
+}
+
+function renderExtraShiftAssignments() {
+    const container = document.getElementById('extra-shift-assignments-container');
+    if (!container) return;
+
+    const assignedStaff = STAFF_LIST.filter(staff =>
+        Array.isArray(extraShiftAssignments[staff.id]) &&
+        extraShiftAssignments[staff.id].length > 0
+    );
+
+    if (assignedStaff.length === 0) {
+        container.innerHTML = '<div class="rounded-lg border border-dashed border-gray-300 bg-white/70 p-4 text-sm text-gray-500">Chưa có nhân viên nào được thêm ca.</div>';
+        return;
+    }
+
+    container.innerHTML = `<div class="overflow-x-auto">
+        <table class="w-full border-collapse border text-center text-sm">
+            <thead>
+                <tr class="bg-indigo-100 text-indigo-900">
+                    <th class="border border-indigo-200 p-2 text-left">Nhân viên</th>
+                    <th class="border border-indigo-200 p-2">Ca được thêm</th>
+                    <th class="border border-indigo-200 p-2">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${assignedStaff.map(staff => {
+                    const labels = extraShiftAssignments[staff.id]
+                        .map(optionId => EXTRA_SHIFT_OPTIONS.find(option => option.id === optionId)?.label)
+                        .filter(Boolean);
+                    return `<tr>
+                        <td class="border border-gray-200 p-2 text-left font-semibold">${staff.name}</td>
+                        <td class="border border-gray-200 p-2">${labels.join(', ')}</td>
+                        <td class="border border-gray-200 p-2">
+                            <button type="button" onclick="removeExtraShiftAssignment('${staff.id}')"
+                                    class="rounded bg-red-500 px-3 py-1 text-xs font-bold text-white hover:bg-red-600">
+                                Xóa
+                            </button>
+                        </td>
+                    </tr>`;
+                }).join('')}
+            </tbody>
+        </table>
+    </div>`;
+}
+
+function initExtraShiftControls() {
+    const select = document.getElementById('extra-shift-staff-select');
+    if (!select || select.options.length > 1) return;
+
+    STAFF_LIST.forEach(staff => {
+        const option = document.createElement('option');
+        option.value = staff.id;
+        option.textContent = `${staff.name} - ${staff.type}`;
+        select.appendChild(option);
+    });
+}
+
+function updateExtraShiftAssignment(staffId) {
+    const checkboxes = EXTRA_SHIFT_OPTIONS.map(option =>
+        document.getElementById(`extra-shift-${option.id}`)
+    );
+    const selected = checkboxes
+        .filter(checkbox => checkbox?.checked)
+        .map(checkbox => checkbox.value);
+
+    if (selected.length > 0) {
+        extraShiftAssignments[staffId] = selected;
+    } else {
+        delete extraShiftAssignments[staffId];
+    }
+
+    localStorage.setItem('extraShiftAssignments', JSON.stringify(extraShiftAssignments));
+    saveData();
+    renderExtraShiftAssignments();
+}
+
+function saveExtraShiftAssignment() {
+    const staffSelect = document.getElementById('extra-shift-staff-select');
+    const staffId = staffSelect?.value;
+    if (!staffId) {
+        alert('Vui lòng chọn nhân viên.');
+        return;
+    }
+
+    updateExtraShiftAssignment(staffId);
+    staffSelect.value = '';
+    EXTRA_SHIFT_OPTIONS.forEach(option => {
+        const checkbox = document.getElementById(`extra-shift-${option.id}`);
+        if (checkbox) checkbox.checked = false;
+    });
+}
+
+function loadExtraShiftAssignment(staffId) {
+    const selected = extraShiftAssignments[staffId] || [];
+    EXTRA_SHIFT_OPTIONS.forEach(option => {
+        const checkbox = document.getElementById(`extra-shift-${option.id}`);
+        if (checkbox) checkbox.checked = selected.includes(option.id);
+    });
+}
+
+function removeExtraShiftAssignment(staffId) {
+    delete extraShiftAssignments[staffId];
+    localStorage.setItem('extraShiftAssignments', JSON.stringify(extraShiftAssignments));
+    saveData();
+    renderConfigTable();
 }
 
 function parseTime(timeStr) {

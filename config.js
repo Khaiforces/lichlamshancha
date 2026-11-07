@@ -17,6 +17,11 @@ const CORE_BLOCKS = [
     '17:00 - 23:00'
 ];
 
+const EXTRA_SHIFT_OPTIONS = [
+    { id: 'ca5', label: 'Ca 5', shift: '12:00 - 17:00' },
+    { id: 'ca8', label: 'Ca 8', shift: '17:00 - 23:00' }
+];
+
 const STAFF_LIST = [
     { id: 'nv1', name: 'Viết Khải', type: 'FT' }, 
     { id: 'nv2', name: 'Anh Thư', type: 'FT' },

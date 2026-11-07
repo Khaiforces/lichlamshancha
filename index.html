@@ -189,6 +189,19 @@
             text-shadow: 0 1px 3px rgba(48, 13, 27, 0.28);
         }
 
+        #extra-shift-config h2,
+        #extra-shift-config label,
+        #extra-shift-config legend,
+        #extra-shift-config span,
+        #extra-shift-config select {
+            color: #1e1b4b !important;
+            text-shadow: none;
+        }
+
+        #extra-shift-config input[type="checkbox"] {
+            accent-color: #4f46e5;
+        }
+
         #welcome-card {
             animation: welcome-card-in 0.65s ease-out both;
         }
@@ -812,6 +825,35 @@
                     <p class="text-sm text-gray-500 mt-1">Sửa số trực tiếp vào bảng. Ô trống sẽ tự động lấy mặc định là ${DEFAULT_QUOTA} người. Dữ liệu được lưu tự động.</p>
                 </div>
                 <div id="config-table-container" class="overflow-x-auto"></div>
+                <div id="extra-shift-config" class="mt-6 rounded-xl border border-indigo-200 bg-indigo-50/70 p-4">
+                    <h2 class="text-lg font-black text-indigo-900">Nhân viên được thêm ca</h2>
+                    <div class="mt-4 flex flex-wrap items-end gap-4">
+                        <label class="flex min-w-[220px] flex-col gap-1 text-sm font-semibold text-indigo-900">
+                            Tên nhân viên
+                            <select id="extra-shift-staff-select"
+                                    onchange="loadExtraShiftAssignment(this.value)"
+                                    class="rounded-lg border border-indigo-200 bg-white p-2 font-medium outline-none">
+                                <option value="" selected disabled>Chọn nhân viên</option>
+                            </select>
+                        </label>
+                        <fieldset class="flex flex-wrap gap-3">
+                            <legend class="mb-1 w-full text-sm font-semibold text-indigo-900">Số ca được thêm</legend>
+                            <label class="flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700">
+                                <input id="extra-shift-ca5" type="checkbox" value="ca5" class="h-4 w-4 accent-indigo-600">
+                                <span>Ca 5</span>
+                            </label>
+                            <label class="flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700">
+                                <input id="extra-shift-ca8" type="checkbox" value="ca8" class="h-4 w-4 accent-indigo-600">
+                                <span>Ca 8</span>
+                            </label>
+                        </fieldset>
+                        <button type="button" onclick="saveExtraShiftAssignment()"
+                                class="rounded-lg bg-indigo-600 px-4 py-2 font-bold text-white shadow transition hover:bg-indigo-700">
+                            Thêm ca
+                        </button>
+                    </div>
+                    <div id="extra-shift-assignments-container" class="mt-4"></div>
+                </div>
             </div>
 
             <!-- TAB 4: LỊCH SỬ -->

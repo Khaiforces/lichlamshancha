@@ -20,6 +20,7 @@ const auditLogsRef = collection(db, 'shared', 'schedule', 'auditLogs');
 let syncReady = false;
 let writeTimer = null;
 let latestLocalState;
+let pendingLocalState = null;
 
 function stableStringify(value) {
     if (Array.isArray(value)) {
@@ -68,6 +69,20 @@ async function initializeCloudSync() {
                     }
 
                     const localState = window.getSharedAppState();
+                    if (
+                        initialized &&
+                        pendingLocalState &&
+                        stableStringify(state) !== stableStringify(pendingLocalState)
+                    ) {
+                        return;
+                    }
+                    if (
+                        initialized &&
+                        pendingLocalState &&
+                        stableStringify(state) === stableStringify(pendingLocalState)
+                    ) {
+                        pendingLocalState = null;
+                    }
                     if (stableStringify(state) !== stableStringify(localState)) {
                         window.applySharedAppState(state);
                         window.setCloudSyncStatus('Đã nhận dữ liệu mới từ đám mây.');
@@ -103,6 +118,7 @@ async function initializeCloudSync() {
 }
 
 window.saveSharedCloudState = state => {
+    pendingLocalState = state;
     if (!syncReady) {
         latestLocalState = state;
         return;
@@ -116,6 +132,9 @@ window.saveSharedCloudState = state => {
                 state,
                 updatedAt: serverTimestamp()
             });
+            if (pendingLocalState === state) {
+                pendingLocalState = null;
+            }
             window.setCloudSyncStatus('Đã lưu dữ liệu chung.');
         } catch (error) {
             console.error('Không thể lưu dữ liệu lên Firestore:', error);
