@@ -10,7 +10,8 @@ let currentUser = '';
 let availabilities = JSON.parse(localStorage.getItem('availabilities')) || {}; 
 let finalSchedule = JSON.parse(localStorage.getItem('finalSchedule')) || null;
 let shiftQuotas = JSON.parse(localStorage.getItem('shiftQuotas')) || {}; 
-let extraShiftAssignments = JSON.parse(localStorage.getItem('extraShiftAssignments')) || {};
+let extraShiftAssignments = normalizeHourAssignments(JSON.parse(localStorage.getItem('extraShiftAssignments')) || {});
+let cutShiftAssignments = normalizeHourAssignments(JSON.parse(localStorage.getItem('cutShiftAssignments')) || {});
 let staffPositions = JSON.parse(localStorage.getItem('staffPositions')) || {};
 let scheduleHistory = JSON.parse(localStorage.getItem('scheduleHistory')) || [];
 let pendingProtectedTab = null;
@@ -84,6 +85,7 @@ function saveData() {
     localStorage.setItem('availabilities', JSON.stringify(availabilities));
     localStorage.setItem('shiftQuotas', JSON.stringify(shiftQuotas));
     localStorage.setItem('extraShiftAssignments', JSON.stringify(extraShiftAssignments));
+    localStorage.setItem('cutShiftAssignments', JSON.stringify(cutShiftAssignments));
     localStorage.setItem('staffPositions', JSON.stringify(staffPositions));
     localStorage.setItem('scheduleHistory', JSON.stringify(scheduleHistory));
     if (finalSchedule) localStorage.setItem('finalSchedule', JSON.stringify(finalSchedule));
@@ -100,10 +102,30 @@ function getSharedAppState() {
         finalSchedule,
         shiftQuotas,
         extraShiftAssignments,
+        cutShiftAssignments,
         staffPositions,
         scheduleHistory,
         scheduleDateRange: JSON.parse(localStorage.getItem('scheduleDateRange') || 'null')
     };
+}
+
+function getAssignedHours(value) {
+    const hours = Array.isArray(value)
+        ? value.reduce((total, optionId) => {
+            const option = EXTRA_SHIFT_OPTIONS.find(item => item.id === optionId);
+            return total + (option?.bonusHours || 0);
+        }, 0)
+        : Number(value);
+    return Math.min(8, Math.max(0, Number.isFinite(hours) ? Math.round(hours) : 0));
+}
+
+function normalizeHourAssignments(assignments) {
+    return Object.fromEntries(
+        Object.entries(assignments || {})
+            .filter(([staffId]) => STAFF_LIST.some(staff => staff.id === staffId && staff.type === 'PT'))
+            .map(([staffId, value]) => [staffId, getAssignedHours(value)])
+            .filter(([, hours]) => hours > 0)
+    );
 }
 
 function getAuditChanges(previousState, nextState) {
@@ -113,6 +135,8 @@ function getAuditChanges(previousState, nextState) {
         availabilities: 'Đăng ký ca',
         finalSchedule: 'Lịch làm hoàn chỉnh',
         shiftQuotas: 'Cấu hình định mức',
+        extraShiftAssignments: 'Cấu hình thêm ca',
+        cutShiftAssignments: 'Cấu hình cắt giờ',
         staffPositions: 'Vị trí nhân viên',
         scheduleHistory: 'Lịch sử lịch',
         scheduleDateRange: 'Khoảng ngày lịch'
@@ -142,7 +166,8 @@ function applySharedAppState(state) {
     availabilities = state.availabilities || {};
     finalSchedule = state.finalSchedule || null;
     shiftQuotas = state.shiftQuotas || {};
-    extraShiftAssignments = state.extraShiftAssignments || {};
+    extraShiftAssignments = normalizeHourAssignments(state.extraShiftAssignments);
+    cutShiftAssignments = normalizeHourAssignments(state.cutShiftAssignments);
     staffPositions = state.staffPositions || {};
     scheduleHistory = Array.isArray(state.scheduleHistory) ? state.scheduleHistory : [];
     lastSavedAppState = JSON.parse(JSON.stringify(getSharedAppState()));
@@ -156,6 +181,7 @@ function applySharedAppState(state) {
     localStorage.setItem('availabilities', JSON.stringify(availabilities));
     localStorage.setItem('shiftQuotas', JSON.stringify(shiftQuotas));
     localStorage.setItem('extraShiftAssignments', JSON.stringify(extraShiftAssignments));
+    localStorage.setItem('cutShiftAssignments', JSON.stringify(cutShiftAssignments));
     localStorage.setItem('staffPositions', JSON.stringify(staffPositions));
     localStorage.setItem('scheduleHistory', JSON.stringify(scheduleHistory));
     if (finalSchedule) {
@@ -217,6 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
     );
     initStaffSelect();
     initExtraShiftControls();
+    initCutShiftControls();
     initScheduleDatePicker();
     renderRegisterTable();
     renderConfigTable(); 
@@ -433,6 +460,10 @@ function toggleScheduleFullscreen(forceState, fromHistory = false) {
         ? 'Thu nhỏ lịch hoàn chỉnh'
         : 'Mở lịch hoàn chỉnh toàn màn hình';
 
+    if (finalSchedule) {
+        renderFinalScheduleTable();
+    }
+
     if (wasFullscreen && !shouldExpand) {
         activateTab('schedule');
     }
@@ -588,12 +619,14 @@ function updateProtectedScheduleActionButtons() {
     if (finalSchedule) {
         renderFinalScheduleTable();
     }
+    renderScheduleHistoryTables();
 }
 
 function executeProtectedScheduleAction(action) {
     if (action === 'schedule') runAutoSchedule();
     if (action === 'reset') resetData();
     if (action === 'save') saveCurrentScheduleToHistory();
+    if (action === 'reveal-hours') renderFinalScheduleTable();
 }
 
 function submitTabPassword(event) {
@@ -757,7 +790,9 @@ function renderConfigTable() {
     html += `</tbody></table>`;
     container.innerHTML = html;
     initExtraShiftControls();
+    initCutShiftControls();
     renderExtraShiftAssignments();
+    renderCutShiftAssignments();
 }
 
 function updateQuota(day, block, value) {
@@ -777,8 +812,7 @@ function renderExtraShiftAssignments() {
     if (!container) return;
 
     const assignedStaff = STAFF_LIST.filter(staff =>
-        Array.isArray(extraShiftAssignments[staff.id]) &&
-        extraShiftAssignments[staff.id].length > 0
+        getExtraShiftBonusHours(staff.id) > 0
     );
 
     if (assignedStaff.length === 0) {
@@ -797,12 +831,9 @@ function renderExtraShiftAssignments() {
             </thead>
             <tbody>
                 ${assignedStaff.map(staff => {
-                    const labels = extraShiftAssignments[staff.id]
-                        .map(optionId => EXTRA_SHIFT_OPTIONS.find(option => option.id === optionId)?.label)
-                        .filter(Boolean);
                     return `<tr>
                         <td class="border border-gray-200 p-2 text-left font-semibold">${staff.name}</td>
-                        <td class="border border-gray-200 p-2">${labels.join(', ')}</td>
+                        <td class="border border-gray-200 p-2">${getExtraShiftBonusHours(staff.id)} giờ</td>
                         <td class="border border-gray-200 p-2">
                             <button type="button" onclick="removeExtraShiftAssignment('${staff.id}')"
                                     class="rounded bg-red-500 px-3 py-1 text-xs font-bold text-white hover:bg-red-600">
@@ -818,25 +849,37 @@ function renderExtraShiftAssignments() {
 
 function initExtraShiftControls() {
     const select = document.getElementById('extra-shift-staff-select');
-    if (!select || select.options.length > 1) return;
+    if (select && select.options.length === 1) {
+        STAFF_LIST.filter(staff => staff.type === 'PT').forEach(staff => {
+            const option = document.createElement('option');
+            option.value = staff.id;
+            option.textContent = `${staff.name} - ${staff.type}`;
+            select.appendChild(option);
+        });
+    }
 
-    STAFF_LIST.forEach(staff => {
-        const option = document.createElement('option');
-        option.value = staff.id;
-        option.textContent = `${staff.name} - ${staff.type}`;
-        select.appendChild(option);
-    });
+    const hoursSelect = document.getElementById('extra-shift-hours-select');
+    if (hoursSelect && hoursSelect.options.length === 1) {
+        for (let hours = 1; hours <= 8; hours++) {
+            const option = document.createElement('option');
+            option.value = String(hours);
+            option.textContent = `${hours} giờ`;
+            hoursSelect.appendChild(option);
+        }
+    }
 }
 
 function updateExtraShiftAssignment(staffId) {
-    const checkboxes = EXTRA_SHIFT_OPTIONS.map(option =>
-        document.getElementById(`extra-shift-${option.id}`)
-    );
-    const selected = checkboxes
-        .filter(checkbox => checkbox?.checked)
-        .map(checkbox => checkbox.value);
+    const staff = STAFF_LIST.find(item => item.id === staffId);
+    if (staff?.type !== 'PT') {
+        delete extraShiftAssignments[staffId];
+        saveData();
+        return;
+    }
 
-    if (selected.length > 0) {
+    const selected = Number(document.getElementById('extra-shift-hours-select')?.value);
+
+    if (selected >= 1 && selected <= 8) {
         extraShiftAssignments[staffId] = selected;
     } else {
         delete extraShiftAssignments[staffId];
@@ -854,21 +897,23 @@ function saveExtraShiftAssignment() {
         alert('Vui lòng chọn nhân viên.');
         return;
     }
+    if (STAFF_LIST.find(staff => staff.id === staffId)?.type !== 'PT') {
+        alert('Chỉ nhân viên PT mới được cấu hình thêm giờ.');
+        return;
+    }
+    if (!document.getElementById('extra-shift-hours-select')?.value) {
+        alert('Vui lòng chọn số giờ được thêm.');
+        return;
+    }
 
     updateExtraShiftAssignment(staffId);
     staffSelect.value = '';
-    EXTRA_SHIFT_OPTIONS.forEach(option => {
-        const checkbox = document.getElementById(`extra-shift-${option.id}`);
-        if (checkbox) checkbox.checked = false;
-    });
+    document.getElementById('extra-shift-hours-select').value = '';
 }
 
 function loadExtraShiftAssignment(staffId) {
-    const selected = extraShiftAssignments[staffId] || [];
-    EXTRA_SHIFT_OPTIONS.forEach(option => {
-        const checkbox = document.getElementById(`extra-shift-${option.id}`);
-        if (checkbox) checkbox.checked = selected.includes(option.id);
-    });
+    const hoursSelect = document.getElementById('extra-shift-hours-select');
+    if (hoursSelect) hoursSelect.value = extraShiftAssignments[staffId] || '';
 }
 
 function removeExtraShiftAssignment(staffId) {
@@ -876,6 +921,109 @@ function removeExtraShiftAssignment(staffId) {
     localStorage.setItem('extraShiftAssignments', JSON.stringify(extraShiftAssignments));
     saveData();
     renderConfigTable();
+}
+
+function renderCutShiftAssignments() {
+    const container = document.getElementById('cut-shift-assignments-container');
+    if (!container) return;
+
+    const assignedStaff = STAFF_LIST.filter(staff =>
+        getCutShiftHours(staff.id) > 0
+    );
+
+    if (assignedStaff.length === 0) {
+        container.innerHTML = '<div class="rounded-lg border border-dashed border-gray-300 bg-white/70 p-4 text-sm text-gray-500">Chưa có nhân viên nào bị cắt giờ.</div>';
+        return;
+    }
+
+    container.innerHTML = `<div class="overflow-x-auto">
+        <table class="w-full border-collapse border text-center text-sm">
+            <thead>
+                <tr class="bg-indigo-100 text-indigo-900">
+                    <th class="border border-indigo-200 p-2 text-left">Nhân viên</th>
+                    <th class="border border-indigo-200 p-2">Ca bị cắt</th>
+                    <th class="border border-indigo-200 p-2">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${assignedStaff.map(staff => {
+                    return `<tr>
+                        <td class="border border-gray-200 p-2 text-left font-semibold">${staff.name}</td>
+                        <td class="border border-gray-200 p-2">${getCutShiftHours(staff.id)} giờ</td>
+                        <td class="border border-gray-200 p-2">
+                            <button type="button" onclick="removeCutShiftAssignment('${staff.id}')"
+                                    class="rounded bg-red-500 px-3 py-1 text-xs font-bold text-white hover:bg-red-600">
+                                Xóa
+                            </button>
+                        </td>
+                    </tr>`;
+                }).join('')}
+            </tbody>
+        </table>
+    </div>`;
+}
+
+function initCutShiftControls() {
+    const select = document.getElementById('cut-shift-staff-select');
+    if (select && select.options.length === 1) {
+        STAFF_LIST.filter(staff => staff.type === 'PT').forEach(staff => {
+            const option = document.createElement('option');
+            option.value = staff.id;
+            option.textContent = `${staff.name} - ${staff.type}`;
+            select.appendChild(option);
+        });
+    }
+
+    const hoursSelect = document.getElementById('cut-shift-hours-select');
+    if (hoursSelect && hoursSelect.options.length === 1) {
+        for (let hours = 1; hours <= 8; hours++) {
+            const option = document.createElement('option');
+            option.value = String(hours);
+            option.textContent = `${hours} giờ`;
+            hoursSelect.appendChild(option);
+        }
+    }
+}
+
+function saveCutShiftAssignment() {
+    const staffSelect = document.getElementById('cut-shift-staff-select');
+    const staffId = staffSelect?.value;
+    if (!staffId) {
+        alert('Vui lòng chọn nhân viên.');
+        return;
+    }
+    if (STAFF_LIST.find(staff => staff.id === staffId)?.type !== 'PT') {
+        alert('Chỉ nhân viên PT mới được cấu hình cắt giờ.');
+        return;
+    }
+    if (!document.getElementById('cut-shift-hours-select')?.value) {
+        alert('Vui lòng chọn số giờ được cắt.');
+        return;
+    }
+
+    const selected = Number(document.getElementById('cut-shift-hours-select')?.value);
+
+    if (selected >= 1 && selected <= 8) {
+        cutShiftAssignments[staffId] = selected;
+    } else {
+        delete cutShiftAssignments[staffId];
+    }
+
+    saveData();
+    renderCutShiftAssignments();
+    staffSelect.value = '';
+    document.getElementById('cut-shift-hours-select').value = '';
+}
+
+function loadCutShiftAssignment(staffId) {
+    const hoursSelect = document.getElementById('cut-shift-hours-select');
+    if (hoursSelect) hoursSelect.value = cutShiftAssignments[staffId] || '';
+}
+
+function removeCutShiftAssignment(staffId) {
+    delete cutShiftAssignments[staffId];
+    saveData();
+    renderCutShiftAssignments();
 }
 
 function parseTime(timeStr) {
@@ -959,10 +1107,13 @@ function getWeeklyHours(schedule, staffId) {
 }
 
 function getExtraShiftBonusHours(staffId) {
-    return (extraShiftAssignments[staffId] || []).reduce((total, optionId) => {
-        const option = EXTRA_SHIFT_OPTIONS.find(item => item.id === optionId);
-        return total + (option?.bonusHours || 0);
-    }, 0);
+    if (STAFF_LIST.find(staff => staff.id === staffId)?.type !== 'PT') return 0;
+    return getAssignedHours(extraShiftAssignments[staffId]);
+}
+
+function getCutShiftHours(staffId) {
+    if (STAFF_LIST.find(staff => staff.id === staffId)?.type !== 'PT') return 0;
+    return getAssignedHours(cutShiftAssignments[staffId]);
 }
 
 function scoreSchedule(schedule) {
@@ -981,7 +1132,11 @@ function scoreSchedule(schedule) {
     const ptHours = STAFF_LIST
         .filter(staff => staff.type === 'PT')
         .filter(staff => DAYS.some(day => getMergedAvailabilities(staff.id, day).length > 0))
-        .map(staff => getWeeklyHours(schedule, staff.id) - getExtraShiftBonusHours(staff.id));
+        .map(staff =>
+            getWeeklyHours(schedule, staff.id)
+            - getExtraShiftBonusHours(staff.id)
+            + getCutShiftHours(staff.id)
+        );
     const averageAdjustedHours = ptHours.reduce((total, hours) => total + hours, 0) / Math.max(1, ptHours.length);
     const hourVariance = ptHours.reduce((total, hours) =>
         total + (hours - averageAdjustedHours) ** 2, 0
@@ -1119,8 +1274,6 @@ function runAutoSchedule() {
                 ALLOWED_OUTPUT_SHIFTS.forEach(shift => {
                     const [s, e] = shift;
                     if (r[0] <= s && r[1] >= e) {
-                        if (violatesQuota(finalSchedule[day], s, e, day)) return;
-
                         if (!bestShift || (e - s) > (bestShift[1] - bestShift[0])) {
                             bestShift = [s, e];
                         }
@@ -1206,8 +1359,12 @@ function runAutoSchedule() {
 
                     // Cân bằng tổng giờ dự kiến trước; dùng ngày làm và độ linh hoạt để phá hòa.
                     availableCandidates.sort((a, b) => {
-                        let hoursA = weeklyHoursTracker[a.staff.id] + a.duration - getExtraShiftBonusHours(a.staff.id);
-                        let hoursB = weeklyHoursTracker[b.staff.id] + b.duration - getExtraShiftBonusHours(b.staff.id);
+                        let hoursA = weeklyHoursTracker[a.staff.id] + a.duration
+                            - getExtraShiftBonusHours(a.staff.id)
+                            + getCutShiftHours(a.staff.id);
+                        let hoursB = weeklyHoursTracker[b.staff.id] + b.duration
+                            - getExtraShiftBonusHours(b.staff.id)
+                            + getCutShiftHours(b.staff.id);
                         if (hoursA !== hoursB) {
                             return hoursA - hoursB;
                         }
@@ -1359,6 +1516,10 @@ function renderScheduleHistory() {
             <div id="schedule-history-table-${index}" class="overflow-x-auto"></div>
         </details>`;
     }).join('');
+    renderScheduleHistoryTables();
+}
+
+function renderScheduleHistoryTables() {
     scheduleHistory.forEach((entry, index) => {
         renderScheduleTable(
             `schedule-history-table-${index}`,
@@ -1425,7 +1586,10 @@ function renderMonthlyHours() {
                 <td class="border border-gray-300 p-2 text-center">${index + 1}</td>
                 <td class="border border-gray-300 p-2 font-semibold">${staff.name}</td>
                 <td class="border border-gray-300 p-2 text-center">${staff.type}</td>
-                <td class="border border-gray-300 p-2 text-center font-bold">${monthTotals[month][staff.id]}h</td>
+                <td class="border border-gray-300 p-2 text-center font-bold ${protectedScheduleActionsUnlocked ? '' : 'cursor-pointer'}"
+                    ${protectedScheduleActionsUnlocked ? '' : `onclick="requestProtectedScheduleAction('reveal-hours')" title="Nhập mật khẩu để xem tổng giờ" role="button" tabindex="0" onkeydown="if (event.key === 'Enter' || event.key === ' ') requestProtectedScheduleAction('reveal-hours')"`}>
+                    <span style="${protectedScheduleActionsUnlocked ? '' : 'filter: blur(5px); user-select: none;'}">${monthTotals[month][staff.id]}h</span>
+                </td>
             </tr>
         `).join('');
         const totalHours = Object.values(monthTotals[month]).reduce((total, hours) => total + hours, 0);
@@ -1442,7 +1606,10 @@ function renderMonthlyHours() {
                 <tbody>${rows}</tbody>
                 <tfoot><tr class="bg-gray-100 font-bold">
                     <td class="border border-gray-300 p-2 text-right" colspan="3">Tổng giờ toàn bộ nhân viên</td>
-                    <td class="border border-gray-300 p-2 text-center">${totalHours}h</td>
+                    <td class="border border-gray-300 p-2 text-center ${protectedScheduleActionsUnlocked ? '' : 'cursor-pointer'}"
+                        ${protectedScheduleActionsUnlocked ? '' : `onclick="requestProtectedScheduleAction('reveal-hours')" title="Nhập mật khẩu để xem tổng giờ" role="button" tabindex="0" onkeydown="if (event.key === 'Enter' || event.key === ' ') requestProtectedScheduleAction('reveal-hours')"`}>
+                        <span class="font-bold" style="${protectedScheduleActionsUnlocked ? '' : 'filter: blur(5px); user-select: none;'}">${totalHours}h</span>
+                    </td>
                 </tr></tfoot>
             </table>
         </section>`;
@@ -1452,6 +1619,84 @@ function renderMonthlyHours() {
 // --- HIỂN THỊ BẢNG PIVOT VÀ KIỂM TRA DUNG SAI ---
 function renderFinalScheduleTable() {
     renderScheduleTable('schedule-table-container', finalSchedule, staffPositions, shiftQuotas, true);
+}
+
+async function exportFinalScheduleImage() {
+    if (!finalSchedule || !Object.values(finalSchedule).some(daySchedule => Object.keys(daySchedule || {}).length > 0)) {
+        alert('Chưa có lịch hoàn chỉnh để lưu ảnh.');
+        return;
+    }
+
+    const table = document.querySelector('#schedule-table-container table');
+    const bounds = table?.getBoundingClientRect();
+    if (!table || !bounds?.width || !bounds?.height) {
+        alert('Không tìm thấy bảng lịch đang hiển thị để lưu ảnh.');
+        return;
+    }
+
+    try {
+        if (typeof window.html2canvas !== 'function') {
+            throw new Error('Thư viện tạo ảnh chưa tải xong. Vui lòng tải lại trang và thử lại.');
+        }
+        const targetWidth = 2560;
+        const scale = targetWidth / bounds.width;
+        const captureId = `schedule-image-${Date.now()}`;
+        table.dataset.scheduleImageCapture = captureId;
+        let canvas;
+        try {
+            canvas = await window.html2canvas(table, {
+                backgroundColor: '#ffffff',
+                height: bounds.height,
+                logging: false,
+                onclone: clonedDocument => {
+                    const clonedTable = clonedDocument.querySelector(
+                        `[data-schedule-image-capture="${captureId}"]`
+                    );
+                    const headerRows = clonedTable?.tHead?.rows;
+                    if (!headerRows || headerRows.length < 2) return;
+
+                    const [firstRow, secondRow] = headerRows;
+                    const spanningCells = Array.from(firstRow.cells)
+                        .filter(cell => cell.rowSpan > 1)
+                        .map(cell => ({
+                            cell,
+                            columnIndex: Array.from(cell.parentElement.cells)
+                                .slice(0, Array.from(cell.parentElement.cells).indexOf(cell))
+                                .reduce((total, previousCell) => total + previousCell.colSpan, 0)
+                        }))
+                        .sort((a, b) => a.columnIndex - b.columnIndex);
+
+                    spanningCells.forEach(({ cell, columnIndex }) => {
+                        const placeholder = cell.cloneNode(false);
+                        placeholder.removeAttribute('rowspan');
+                        placeholder.textContent = '';
+                        placeholder.style.borderTopColor = 'transparent';
+                        secondRow.insertBefore(placeholder, secondRow.cells[columnIndex] || null);
+
+                        cell.removeAttribute('rowspan');
+                        cell.style.borderBottomColor = 'transparent';
+                    });
+                },
+                scale,
+                useCORS: true,
+                width: bounds.width
+            });
+        } finally {
+            delete table.dataset.scheduleImageCapture;
+        }
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) throw new Error('Không thể mã hóa ảnh lịch thành PNG.');
+        const imageUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const startDate = parseScheduleDate(document.getElementById('schedule-start-date')?.value || '');
+        link.download = `lich-lam-hoan-chinh-${startDate ? toIsoScheduleDate(startDate) : '2k'}.png`;
+        link.href = imageUrl;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(imageUrl), 1000);
+    } catch (error) {
+        console.error('Không thể lưu ảnh lịch:', error);
+        alert(`Không thể lưu ảnh lịch: ${error.message}`);
+    }
 }
 
 let lastScheduleLandscapeMode = null;
@@ -1465,7 +1710,8 @@ window.addEventListener('resize', () => {
 function renderScheduleTable(containerId, scheduleData, positionData, quotaData, editablePositions) {
     const container = document.getElementById(containerId);
     if (!container) return;
-    const compactSchedule = containerId === 'schedule-table-container'
+    const isScheduleTable = containerId === 'schedule-table-container';
+    const compactSchedule = isScheduleTable
         && window.matchMedia('(max-width: 1024px) and (orientation: landscape)').matches;
 
     let missingAlerts = [];
@@ -1515,7 +1761,7 @@ function renderScheduleTable(containerId, scheduleData, positionData, quotaData,
                <col style="width: 56px">
                <col style="width: 64px">
            `).join('')}
-           <col style="width: 70px>`;
+           <col style="width: 70px">`;
     const header = compactSchedule
         ? `<tr class="bg-[#521727] text-white">
                <th class="border border-gray-400 p-2">STT</th>
@@ -1587,12 +1833,17 @@ function renderScheduleTable(containerId, scheduleData, positionData, quotaData,
                     ? `<td class="border border-gray-400 p-1 ${emptyBg}">—</td>`
                     : `<td class="border border-gray-400 p-1 ${emptyBg}"></td>
                        <td class="border border-gray-400 p-1 ${emptyBg}"></td>
-                       <td class="border border-gray-400 p-1 ${emptyBg}"></td>`;
+                       <td class="border border-gray-400 p-1 text-center align-middle" style="background-color: ${staff.type === 'FT' ? '#d9ead3' : '#ffe599'}"></td>`;
             }
         });
 
-        html += `<td class="border border-gray-400 p-1 bg-gray-100 text-gray-900 font-bold">
-                    ${totalHoursForWeek}h
+        const totalHoursCellClass = protectedScheduleActionsUnlocked ? '' : 'cursor-pointer';
+        const totalHoursCellAction = protectedScheduleActionsUnlocked
+            ? ''
+            : `onclick="requestProtectedScheduleAction('reveal-hours')" title="Nhập mật khẩu để xem tổng giờ" role="button" tabindex="0" onkeydown="if (event.key === 'Enter' || event.key === ' ') requestProtectedScheduleAction('reveal-hours')"`;
+        html += `<td class="border border-gray-400 p-1 bg-gray-100 text-gray-900 font-bold ${totalHoursCellClass}"
+                    ${totalHoursCellAction}>
+                    <span style="${protectedScheduleActionsUnlocked ? '' : 'filter: blur(5px); user-select: none;'}">${totalHoursForWeek}h</span>
                  </td>
                  </tr>`;
     });

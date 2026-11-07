@@ -26,6 +26,7 @@ service cloud.firestore {
           'finalSchedule',
           'shiftQuotas',
           'extraShiftAssignments',
+          'cutShiftAssignments',
           'staffPositions',
           'scheduleHistory',
           'scheduleDateRange'

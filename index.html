@@ -6,6 +6,7 @@
     <title>Hệ thống Xếp lịch Tự động</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
         /* Ẩn mũi tên tăng giảm số mặc định của trình duyệt cho đẹp */
         input[type=number]::-webkit-inner-spin-button, 
@@ -58,6 +59,55 @@
             -webkit-overflow-scrolling: touch;
         }
 
+        @media (min-width: 1025px) {
+            #schedule-table-container {
+                overflow-x: hidden;
+            }
+
+            #schedule-table-container table:not(.schedule-overview-table) {
+                width: 100%;
+                min-width: 0 !important;
+                max-width: 100%;
+                table-layout: fixed;
+                font-size: 0.62rem;
+            }
+
+            #schedule-table-container table:not(.schedule-overview-table) col {
+                width: 4.0476% !important;
+            }
+
+            #schedule-table-container table:not(.schedule-overview-table) col:nth-child(1) {
+                width: 3% !important;
+            }
+
+            #schedule-table-container table:not(.schedule-overview-table) col:nth-child(2) {
+                width: 9% !important;
+            }
+
+            #schedule-table-container table:not(.schedule-overview-table) col:nth-child(24) {
+                width: 3% !important;
+            }
+
+            #schedule-table-container table:not(.schedule-overview-table) th,
+            #schedule-table-container table:not(.schedule-overview-table) td {
+                min-width: 0 !important;
+                padding: 0.18rem 0.1rem !important;
+                line-height: 1.1;
+                overflow-wrap: anywhere;
+            }
+
+            #schedule-table-container table:not(.schedule-overview-table) select {
+                width: 100%;
+                min-width: 0;
+                padding: 0.1rem 0 !important;
+                font-size: 0.55rem;
+            }
+
+            #schedule-table-container table:not(.schedule-overview-table) .schedule-date-label {
+                font-size: 0.55rem;
+            }
+        }
+
         #welcome-screen {
             background:
                 radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.26) 0 2px, transparent 3px),
@@ -76,6 +126,30 @@
                 linear-gradient(135deg, #71394a 0%, #a96270 48%, #f6c8bd 100%);
             background-size: 130px 130px, 170px 170px, auto;
             background-attachment: fixed;
+        }
+
+        @media (min-width: 1440px) {
+            body {
+                padding: 1.5rem;
+            }
+
+            #app-shell {
+                width: 100%;
+                max-width: none;
+            }
+
+            #schedule-table-container table:not(.schedule-overview-table) {
+                font-size: 0.75rem;
+            }
+
+            #schedule-table-container table:not(.schedule-overview-table) th,
+            #schedule-table-container table:not(.schedule-overview-table) td {
+                padding: 0.28rem 0.18rem !important;
+            }
+
+            #schedule-table-container table:not(.schedule-overview-table) select {
+                font-size: 0.68rem;
+            }
         }
 
         #app-shell {
@@ -193,12 +267,18 @@
         #extra-shift-config label,
         #extra-shift-config legend,
         #extra-shift-config span,
-        #extra-shift-config select {
+        #extra-shift-config select,
+        #cut-shift-config h2,
+        #cut-shift-config label,
+        #cut-shift-config legend,
+        #cut-shift-config span,
+        #cut-shift-config select {
             color: #1e1b4b !important;
             text-shadow: none;
         }
 
-        #extra-shift-config input[type="checkbox"] {
+        #extra-shift-config input[type="checkbox"],
+        #cut-shift-config input[type="checkbox"] {
             accent-color: #4f46e5;
         }
 
@@ -797,6 +877,11 @@
                             Lưu lịch
                         </button>
                     </div>
+                    <button id="schedule-export-image" type="button"
+                            onclick="exportFinalScheduleImage()"
+                            class="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white shadow transition hover:bg-indigo-700">
+                        Lưu ảnh 2K
+                    </button>
                     <button id="schedule-fullscreen-toggle" type="button"
                             aria-label="Mở lịch hoàn chỉnh toàn màn hình"
                             title="Mở lịch hoàn chỉnh toàn màn hình"
@@ -827,7 +912,7 @@
                 <div id="config-table-container" class="overflow-x-auto"></div>
                 <div id="extra-shift-config" class="mt-6 rounded-xl border border-indigo-200 bg-indigo-50/70 p-4">
                     <h2 class="text-lg font-black text-indigo-900">Nhân viên được thêm ca</h2>
-                    <p class="mt-1 text-sm text-indigo-800">Lịch tự động cân bằng giờ PT theo tuần: Ca 5 đặt mục tiêu cao hơn 5 giờ, Ca 8 cao hơn 8 giờ so với PT không được thêm ca. Kết quả còn phụ thuộc vào giờ đăng ký và định mức từng ca.</p>
+                    <p class="mt-1 text-sm text-indigo-800">Chỉ áp dụng cho nhân viên PT. Nhân viên FT luôn được xếp theo ca đã đăng ký, không bị thêm hoặc cắt giờ. Lịch tự động cân bằng giờ PT theo tuần theo số giờ được thêm; kết quả còn phụ thuộc vào giờ đăng ký và định mức từng ca.</p>
                     <div class="mt-4 flex flex-wrap items-end gap-4">
                         <label class="flex min-w-[220px] flex-col gap-1 text-sm font-semibold text-indigo-900">
                             Tên nhân viên
@@ -838,15 +923,11 @@
                             </select>
                         </label>
                         <fieldset class="flex flex-wrap gap-3">
-                            <legend class="mb-1 w-full text-sm font-semibold text-indigo-900">Số ca được thêm</legend>
-                            <label class="flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700">
-                                <input id="extra-shift-ca5" type="checkbox" value="ca5" class="h-4 w-4 accent-indigo-600">
-                                <span>Ca 5</span>
-                            </label>
-                            <label class="flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700">
-                                <input id="extra-shift-ca8" type="checkbox" value="ca8" class="h-4 w-4 accent-indigo-600">
-                                <span>Ca 8</span>
-                            </label>
+                            <legend class="mb-1 w-full text-sm font-semibold text-indigo-900">Số giờ được thêm</legend>
+                            <select id="extra-shift-hours-select"
+                                    class="rounded-lg border border-indigo-200 bg-white p-2 font-medium outline-none">
+                                <option value="" selected disabled>Chọn số giờ</option>
+                            </select>
                         </fieldset>
                         <button type="button" onclick="saveExtraShiftAssignment()"
                                 class="rounded-lg bg-indigo-600 px-4 py-2 font-bold text-white shadow transition hover:bg-indigo-700">
@@ -854,6 +935,32 @@
                         </button>
                     </div>
                     <div id="extra-shift-assignments-container" class="mt-4"></div>
+                </div>
+                <div id="cut-shift-config" class="mt-6 rounded-xl border border-indigo-200 bg-indigo-50/70 p-4">
+                    <h2 class="text-lg font-black text-indigo-900">Nhân viên bị cắt ca</h2>
+                    <p class="mt-1 text-sm text-indigo-800">Chỉ áp dụng cho nhân viên PT. Nhân viên FT luôn được xếp theo ca đã đăng ký, không bị thêm hoặc cắt giờ. Lịch tự động cân bằng giờ PT theo tuần theo số giờ bị cắt; kết quả còn phụ thuộc vào giờ đăng ký và định mức từng ca.</p>
+                    <div class="mt-4 flex flex-wrap items-end gap-4">
+                        <label class="flex min-w-[220px] flex-col gap-1 text-sm font-semibold text-indigo-900">
+                            Tên nhân viên
+                            <select id="cut-shift-staff-select"
+                                    onchange="loadCutShiftAssignment(this.value)"
+                                    class="rounded-lg border border-indigo-200 bg-white p-2 font-medium outline-none">
+                                <option value="" selected disabled>Chọn nhân viên</option>
+                            </select>
+                        </label>
+                        <fieldset class="flex flex-wrap gap-3">
+                            <legend class="mb-1 w-full text-sm font-semibold text-indigo-900">Số giờ được cắt</legend>
+                            <select id="cut-shift-hours-select"
+                                    class="rounded-lg border border-indigo-200 bg-white p-2 font-medium outline-none">
+                                <option value="" selected disabled>Chọn số giờ</option>
+                            </select>
+                        </fieldset>
+                        <button type="button" onclick="saveCutShiftAssignment()"
+                                class="rounded-lg bg-indigo-600 px-4 py-2 font-bold text-white shadow transition hover:bg-indigo-700">
+                            Cắt ca
+                        </button>
+                    </div>
+                    <div id="cut-shift-assignments-container" class="mt-4"></div>
                 </div>
             </div>
 
