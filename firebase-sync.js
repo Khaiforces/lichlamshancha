@@ -69,21 +69,23 @@ async function initializeCloudSync() {
                     }
 
                     const localState = window.getSharedAppState();
+                    const stateKey = stableStringify(state);
                     if (
                         initialized &&
                         pendingLocalState &&
-                        stableStringify(state) !== stableStringify(pendingLocalState)
+                        stateKey !== stableStringify(pendingLocalState)
                     ) {
                         return;
                     }
                     if (
                         initialized &&
                         pendingLocalState &&
-                        stableStringify(state) === stableStringify(pendingLocalState)
+                        stateKey === stableStringify(pendingLocalState)
                     ) {
                         pendingLocalState = null;
+                        window.setCloudSyncStatus('Đã lưu dữ liệu chung.');
                     }
-                    if (stableStringify(state) !== stableStringify(localState)) {
+                    if (stateKey !== stableStringify(localState) && !pendingLocalState) {
                         window.applySharedAppState(state);
                         window.setCloudSyncStatus('Đã nhận dữ liệu mới từ đám mây.');
                     }
@@ -98,7 +100,9 @@ async function initializeCloudSync() {
                                 pendingLocalState = null;
                             }
                         }
-                        window.setCloudSyncStatus('Đã kết nối dữ liệu chung.');
+                        if (!pendingLocalState) {
+                            window.setCloudSyncStatus('Đã kết nối dữ liệu chung.');
+                        }
                         resolve();
                     }
                     return;
@@ -141,9 +145,8 @@ window.saveSharedCloudState = state => {
                 updatedAt: serverTimestamp()
             });
             if (pendingLocalState === state) {
-                pendingLocalState = null;
+                window.setCloudSyncStatus('Đã lưu dữ liệu chung.');
             }
-            window.setCloudSyncStatus('Đã lưu dữ liệu chung.');
         } catch (error) {
             console.error('Không thể lưu dữ liệu lên Firestore:', error);
             window.setCloudSyncStatus(
