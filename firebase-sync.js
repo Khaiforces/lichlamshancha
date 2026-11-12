@@ -57,8 +57,12 @@ async function initializeCloudSync() {
             }
         };
 
-        unsubscribe = onSnapshot(sharedStateRef, async snapshot => {
+        unsubscribe = onSnapshot(sharedStateRef, { includeMetadataChanges: true }, async snapshot => {
             try {
+                if (snapshot.metadata.fromCache) {
+                    return;
+                }
+
                 if (snapshot.exists()) {
                     const state = snapshot.data()?.state;
                     if (!state || typeof state !== 'object' || Array.isArray(state)) {
@@ -67,15 +71,27 @@ async function initializeCloudSync() {
 
                     const localState = window.getSharedAppState();
                     const stateKey = stableStringify(state);
+                    if (!initialized) {
+                        clearTimeout(writeTimer);
+                        writeTimer = null;
+                        pendingLocalState = null;
+                        if (stateKey !== stableStringify(localState)) {
+                            window.applySharedAppState(state);
+                        }
+                        syncReady = true;
+                        initialized = true;
+                        window.setCloudSyncStatus('Đã kết nối dữ liệu chung.');
+                        resolve();
+                        return;
+                    }
+
                     if (
-                        initialized &&
                         pendingLocalState &&
                         stateKey !== stableStringify(pendingLocalState)
                     ) {
                         return;
                     }
                     if (
-                        initialized &&
                         pendingLocalState &&
                         stateKey === stableStringify(pendingLocalState)
                     ) {
@@ -87,21 +103,6 @@ async function initializeCloudSync() {
                         window.setCloudSyncStatus('Đã nhận dữ liệu mới từ đám mây.');
                     }
                     syncReady = true;
-                    if (!initialized) {
-                        initialized = true;
-                        if (pendingLocalState) {
-                            const pendingState = pendingLocalState;
-                            if (stableStringify(pendingState) !== stableStringify(state)) {
-                                window.saveSharedCloudState(pendingState);
-                            } else {
-                                pendingLocalState = null;
-                            }
-                        }
-                        if (!pendingLocalState) {
-                            window.setCloudSyncStatus('Đã kết nối dữ liệu chung.');
-                        }
-                        resolve();
-                    }
                     return;
                 }
 

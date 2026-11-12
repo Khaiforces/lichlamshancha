@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedDateRange) {
         setScheduleDatePickerValue(savedDateRange.startDate || '');
     }
-    updateScheduleDateRange();
+    updateScheduleDateRange(false);
     if (finalSchedule) renderFinalScheduleTable();
     renderScheduleHistory();
     renderMonthlyHours();
@@ -320,7 +320,7 @@ function getScheduleHeaderLabel(day, index) {
     return `${day}<br><span class="schedule-date-label text-[0.65rem] font-normal">${shortDate}</span>`;
 }
 
-function updateScheduleDateRange() {
+function updateScheduleDateRange(saveToSharedState = true) {
     const startDate = parseScheduleDate(updateScheduleDateInputFromPicker());
     if (!startDate) {
         if (finalSchedule) renderFinalScheduleTable();
@@ -331,7 +331,7 @@ function updateScheduleDateRange() {
         startDate: toIsoScheduleDate(startDate),
         endDate: toIsoScheduleDate(endDate)
     }));
-    saveData();
+    if (saveToSharedState) saveData();
     if (finalSchedule) renderFinalScheduleTable();
 }
 
