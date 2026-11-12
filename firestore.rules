@@ -34,13 +34,5 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    match /shared/schedule/auditLogs/{logId} {
-      allow read: if false;
-      allow create: if isAnonymousVisitor()
-        && request.resource.data.keys().hasOnly(['actorId', 'changedAt', 'changes'])
-        && request.resource.data.actorId == request.auth.uid
-        && request.resource.data.changes is list;
-      allow update, delete: if false;
-    }
   }
 }

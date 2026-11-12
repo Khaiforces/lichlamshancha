@@ -905,6 +905,17 @@
                         <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="importFromExcel(event)">
                     </label>
                 </div>
+                <div class="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 p-4">
+                    <div>
+                        <h2 class="font-bold text-red-900">Xóa đăng ký lịch</h2>
+                        <p class="mt-1 text-sm text-red-800">Xóa các ca đã đăng ký, lịch xếp hiện tại và vị trí nhân viên. Cấu hình và lịch sử đã lưu được giữ nguyên.</p>
+                    </div>
+                    <button id="config-reset-registrations" type="button" aria-disabled="true" title="Nhập mật khẩu để sử dụng"
+                            onclick="requestProtectedScheduleAction('reset')"
+                            class="cursor-not-allowed rounded-lg bg-red-600 px-4 py-2 font-bold text-white opacity-50 shadow transition hover:bg-red-700">
+                        🗑️ Xóa đăng ký lịch
+                    </button>
+                </div>
                 <div class="mb-4">
                     <h2 class="text-xl font-bold text-gray-800">Cài đặt số lượng nhân viên cần thiết cho từng ca</h2>
                     <p class="text-sm text-gray-500 mt-1">Sửa số trực tiếp vào bảng. Ô trống sẽ tự động lấy mặc định là ${DEFAULT_QUOTA} người. Dữ liệu được lưu tự động.</p>

@@ -1,8 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js';
 import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js';
 import {
-    addDoc,
-    collection,
     doc,
     getFirestore,
     onSnapshot,
@@ -15,7 +13,6 @@ const app = initializeApp(window.FIREBASE_CONFIG);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const sharedStateRef = doc(db, 'shared', 'schedule');
-const auditLogsRef = collection(db, 'shared', 'schedule', 'auditLogs');
 
 let syncReady = false;
 let writeTimer = null;
@@ -154,20 +151,6 @@ window.saveSharedCloudState = state => {
             );
         }
     }, 250);
-};
-
-window.writeSharedAuditLog = changes => {
-    if (!syncReady || !Array.isArray(changes) || changes.length === 0 || !auth.currentUser) {
-        return;
-    }
-
-    addDoc(auditLogsRef, {
-        actorId: auth.currentUser.uid,
-        changedAt: serverTimestamp(),
-        changes
-    }).catch(error => {
-        console.error('Không thể lưu nhật ký chỉnh sửa:', error);
-    });
 };
 
 function startCloudSync() {

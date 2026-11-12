@@ -16,7 +16,6 @@ let staffPositions = JSON.parse(localStorage.getItem('staffPositions')) || {};
 let scheduleHistory = JSON.parse(localStorage.getItem('scheduleHistory')) || [];
 let pendingProtectedTab = null;
 let pendingProtectedScheduleAction = null;
-let lastSavedAppState = null;
 let motivationRainTimeout = null;
 let wrongPasswordAttempts = 0;
 let mainInterfaceEntered = false;
@@ -81,7 +80,6 @@ window.addEventListener('orientationchange', updateOrientationPrompt);
 
 function saveData() {
     const nextState = getSharedAppState();
-    const changes = getAuditChanges(lastSavedAppState, nextState);
     localStorage.setItem('availabilities', JSON.stringify(availabilities));
     localStorage.setItem('shiftQuotas', JSON.stringify(shiftQuotas));
     localStorage.setItem('extraShiftAssignments', JSON.stringify(extraShiftAssignments));
@@ -90,10 +88,6 @@ function saveData() {
     localStorage.setItem('scheduleHistory', JSON.stringify(scheduleHistory));
     if (finalSchedule) localStorage.setItem('finalSchedule', JSON.stringify(finalSchedule));
     window.saveSharedCloudState?.(nextState);
-    if (changes.length > 0) {
-        window.writeSharedAuditLog?.(changes);
-    }
-    lastSavedAppState = JSON.parse(JSON.stringify(nextState));
 }
 
 function getSharedAppState() {
@@ -128,40 +122,6 @@ function normalizeHourAssignments(assignments) {
     );
 }
 
-function getAuditChanges(previousState, nextState) {
-    if (!previousState) return [];
-
-    const labels = {
-        availabilities: 'Đăng ký ca',
-        finalSchedule: 'Lịch làm hoàn chỉnh',
-        shiftQuotas: 'Cấu hình định mức',
-        extraShiftAssignments: 'Cấu hình thêm ca',
-        cutShiftAssignments: 'Cấu hình cắt giờ',
-        staffPositions: 'Vị trí nhân viên',
-        scheduleHistory: 'Lịch sử lịch',
-        scheduleDateRange: 'Khoảng ngày lịch'
-    };
-
-    return Object.keys(labels)
-        .filter(key => stableStringifyForAudit(previousState[key]) !== stableStringifyForAudit(nextState[key]))
-        .map(key => ({
-            section: key,
-            label: labels[key],
-            before: previousState[key] ?? null,
-            after: nextState[key] ?? null
-        }));
-}
-
-function stableStringifyForAudit(value) {
-    if (Array.isArray(value)) return `[${value.map(stableStringifyForAudit).join(',')}]`;
-    if (value && typeof value === 'object') {
-        return `{${Object.keys(value).sort()
-            .map(key => `${JSON.stringify(key)}:${stableStringifyForAudit(value[key])}`)
-            .join(',')}}`;
-    }
-    return JSON.stringify(value);
-}
-
 function applySharedAppState(state) {
     availabilities = state.availabilities || {};
     finalSchedule = state.finalSchedule || null;
@@ -170,8 +130,6 @@ function applySharedAppState(state) {
     cutShiftAssignments = normalizeHourAssignments(state.cutShiftAssignments);
     staffPositions = state.staffPositions || {};
     scheduleHistory = Array.isArray(state.scheduleHistory) ? state.scheduleHistory : [];
-    lastSavedAppState = JSON.parse(JSON.stringify(getSharedAppState()));
-
     if (state.scheduleDateRange) {
         localStorage.setItem('scheduleDateRange', JSON.stringify(state.scheduleDateRange));
     } else {
@@ -256,7 +214,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedDateRange) {
         setScheduleDatePickerValue(savedDateRange.startDate || '');
     }
-    lastSavedAppState = JSON.parse(JSON.stringify(getSharedAppState()));
     updateScheduleDateRange();
     if (finalSchedule) renderFinalScheduleTable();
     renderScheduleHistory();
@@ -603,7 +560,8 @@ function updateProtectedScheduleActionButtons() {
     const buttons = [
         document.getElementById('schedule-action-schedule'),
         document.getElementById('schedule-action-reset'),
-        document.getElementById('schedule-action-save')
+        document.getElementById('schedule-action-save'),
+        document.getElementById('config-reset-registrations')
     ].filter(Boolean);
 
     buttons.forEach(button => {

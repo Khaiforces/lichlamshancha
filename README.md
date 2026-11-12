@@ -18,6 +18,6 @@ Trước khi dùng:
 
 `firebase.json` trỏ đến `firestore.rules`. Dữ liệu được lưu ở tài liệu `shared/schedule` và cập nhật trực tiếp giữa các trình duyệt. Nếu không cấu hình Anonymous Authentication hoặc chưa triển khai Rules, trang sẽ báo trạng thái không kết nối được.
 
-Ứng dụng âm thầm lưu nhật ký chỉnh sửa trong collection con `shared/schedule/auditLogs`. Nhật ký chỉ lưu mã người dùng ẩn danh, thời gian và các phần dữ liệu trước/sau khi thay đổi; không lưu tên hoặc thông tin thiết bị. Nhật ký không hiển thị trên website và người dùng ẩn danh không có quyền đọc; chủ sở hữu xem trực tiếp trong Firebase Console.
+Ứng dụng không ghi nhật ký truy cập hoặc nhật ký chỉnh sửa riêng. Firebase vẫn có thể duy trì các log vận hành/dịch vụ theo chính sách của Google Cloud.
 
 Các khóa Firebase trong `config.js` là cấu hình web công khai, không phải thông tin đăng nhập quản trị. Không thêm service-account key hoặc private key vào website.
