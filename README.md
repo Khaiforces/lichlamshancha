@@ -21,3 +21,7 @@ Trước khi dùng:
 Ứng dụng không ghi nhật ký truy cập hoặc nhật ký chỉnh sửa riêng. Firebase vẫn có thể duy trì các log vận hành/dịch vụ theo chính sách của Google Cloud.
 
 Các khóa Firebase trong `config.js` là cấu hình web công khai, không phải thông tin đăng nhập quản trị. Không thêm service-account key hoặc private key vào website.
+
+Định mức ca lõi chia khung buổi sáng thành `07:00 - 10:00` và `10:00 - 12:00`; thuật toán xếp lịch và cảnh báo đều dùng các khung này. Định mức cũ `07:00 - 12:00` được chuyển sang cả hai khung mới khi dữ liệu được đọc, trừ khi khung mới đã có định mức riêng.
+
+Đăng ký ca `07:00 - 17:00` biểu thị thời gian sẵn sàng trong toàn khoảng; thuật toán có thể xếp các ca đầu ra nằm trọn bên trong, chẳng hạn `07:00 - 12:00`, `07:00 - 15:00`, `10:00 - 15:00` hoặc `12:00 - 17:00`.

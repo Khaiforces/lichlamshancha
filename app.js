@@ -7,9 +7,9 @@ const ALLOWED_OUTPUT_SHIFTS = [
 ];
 
 let currentUser = '';
-let availabilities = JSON.parse(localStorage.getItem('availabilities')) || {}; 
+let availabilities = JSON.parse(localStorage.getItem('availabilities')) || {};
 let finalSchedule = JSON.parse(localStorage.getItem('finalSchedule')) || null;
-let shiftQuotas = JSON.parse(localStorage.getItem('shiftQuotas')) || {}; 
+let shiftQuotas = normalizeShiftQuotas(JSON.parse(localStorage.getItem('shiftQuotas')) || {});
 let extraShiftAssignments = normalizeHourAssignments(JSON.parse(localStorage.getItem('extraShiftAssignments')) || {});
 let cutShiftAssignments = normalizeHourAssignments(JSON.parse(localStorage.getItem('cutShiftAssignments')) || {});
 let staffPositions = JSON.parse(localStorage.getItem('staffPositions')) || {};
@@ -103,6 +103,26 @@ function getSharedAppState() {
     };
 }
 
+function normalizeShiftQuotas(quotas) {
+    const normalized = {};
+    Object.entries(quotas || {}).forEach(([day, dayQuotas]) => {
+        if (!dayQuotas || typeof dayQuotas !== 'object' || Array.isArray(dayQuotas)) return;
+        const nextDayQuotas = { ...dayQuotas };
+        const legacyMorningQuota = nextDayQuotas['07:00 - 12:00'];
+        if (legacyMorningQuota !== undefined) {
+            if (nextDayQuotas['07:00 - 10:00'] === undefined) {
+                nextDayQuotas['07:00 - 10:00'] = legacyMorningQuota;
+            }
+            if (nextDayQuotas['10:00 - 12:00'] === undefined) {
+                nextDayQuotas['10:00 - 12:00'] = legacyMorningQuota;
+            }
+            delete nextDayQuotas['07:00 - 12:00'];
+        }
+        normalized[day] = nextDayQuotas;
+    });
+    return normalized;
+}
+
 function getAssignedHours(value) {
     const hours = Array.isArray(value)
         ? value.reduce((total, optionId) => {
@@ -125,7 +145,7 @@ function normalizeHourAssignments(assignments) {
 function applySharedAppState(state) {
     availabilities = state.availabilities || {};
     finalSchedule = state.finalSchedule || null;
-    shiftQuotas = state.shiftQuotas || {};
+    shiftQuotas = normalizeShiftQuotas(state.shiftQuotas || {});
     extraShiftAssignments = normalizeHourAssignments(state.extraShiftAssignments);
     cutShiftAssignments = normalizeHourAssignments(state.cutShiftAssignments);
     staffPositions = state.staffPositions || {};
@@ -168,8 +188,17 @@ window.getSharedAppState = getSharedAppState;
 window.applySharedAppState = applySharedAppState;
 
 function getQuota(day, block) {
-    if (shiftQuotas[day] && shiftQuotas[day][block] !== undefined) {
-        return shiftQuotas[day][block];
+    return getQuotaFromData(shiftQuotas, day, block);
+}
+
+function getQuotaFromData(quotaData, day, block) {
+    const dayQuotas = quotaData?.[day] || {};
+    if (dayQuotas[block] !== undefined) return dayQuotas[block];
+    if (
+        (block === '07:00 - 10:00' || block === '10:00 - 12:00') &&
+        dayQuotas['07:00 - 12:00'] !== undefined
+    ) {
+        return dayQuotas['07:00 - 12:00'];
     }
     return DEFAULT_QUOTA;
 }
@@ -1035,22 +1064,7 @@ function violatesQuota(scheduleDay, start, end, day) {
             const [blockStart, blockEnd] = parseTime(block);
             if (hour < blockStart || hour >= blockEnd) continue;
 
-            let hourlyLimit = getQuota(day, block);
-            if (
-                block === '07:00 - 12:00' &&
-                hour >= 10 &&
-                (
-                    coversBlock([start, end], 12, 15) ||
-                    Object.values(scheduleDay).some(shift =>
-                        shift.start <= hour &&
-                        shift.end > hour &&
-                        coversBlock([shift.start, shift.end], 12, 15)
-                    )
-                )
-            ) {
-                hourlyLimit++;
-            }
-
+            const hourlyLimit = getQuota(day, block);
             if (countStaffAtHour(scheduleDay, hour) >= hourlyLimit) return true;
         }
     }
@@ -1075,17 +1089,7 @@ function getCutShiftHours(staffId) {
 }
 
 function scoreSchedule(schedule) {
-    let quotaDeficit = 0;
-    CORE_BLOCKS.forEach(block => {
-        const [start, end] = parseTime(block);
-        DAYS.forEach(day => {
-            const required = Math.max(0, getQuota(day, block) - getAllowedShortfall(block));
-            const count = Object.values(schedule[day] || {}).filter(shift =>
-                coversBlock([shift.start, shift.end], start, end)
-            ).length;
-            quotaDeficit += Math.max(0, required - count);
-        });
-    });
+    let quotaDeficit = getQuotaDeficit(schedule);
 
     const ptHours = STAFF_LIST
         .filter(staff => staff.type === 'PT')
@@ -1101,6 +1105,23 @@ function scoreSchedule(schedule) {
     ) / Math.max(1, ptHours.length);
 
     return quotaDeficit * 1000000000 + hourVariance;
+}
+
+function getQuotaDeficit(schedule) {
+    return DAYS.reduce((total, day) => total + getDayQuotaDeficit(schedule, day), 0);
+}
+
+function getDayQuotaDeficit(schedule, day) {
+    let quotaDeficit = 0;
+    CORE_BLOCKS.forEach(block => {
+        const [start, end] = parseTime(block);
+        const required = Math.max(0, getQuota(day, block) - getAllowedShortfall(block));
+        const count = Object.values(schedule[day] || {}).filter(shift =>
+            coversBlock([shift.start, shift.end], start, end)
+        ).length;
+        quotaDeficit += Math.max(0, required - count);
+    });
+    return quotaDeficit;
 }
 
 function canWorkShift(staffId, day, shift) {
@@ -1166,6 +1187,54 @@ function improveScheduleFairness(schedule) {
                     }
                 });
             });
+
+            if (getDayQuotaDeficit(schedule, day) > 0) {
+                const partTimers = STAFF_LIST.filter(staff => staff.type === 'PT');
+                for (let firstIndex = 0; firstIndex < partTimers.length; firstIndex++) {
+                    for (let secondIndex = firstIndex + 1; secondIndex < partTimers.length; secondIndex++) {
+                        const first = partTimers[firstIndex];
+                        const second = partTimers[secondIndex];
+                        const firstOriginal = schedule[day][first.id] || null;
+                        const secondOriginal = schedule[day][second.id] || null;
+                        if (!firstOriginal && !secondOriginal) continue;
+
+                        delete schedule[day][first.id];
+                        delete schedule[day][second.id];
+
+                        ALLOWED_OUTPUT_SHIFTS.forEach(firstRange => {
+                            const firstShift = { start: firstRange[0], end: firstRange[1] };
+                            if (!canWorkShift(first.id, day, firstShift) ||
+                                violatesQuota(schedule[day], firstShift.start, firstShift.end, day)) return;
+
+                            schedule[day][first.id] = firstShift;
+                            ALLOWED_OUTPUT_SHIFTS.forEach(secondRange => {
+                                const secondShift = { start: secondRange[0], end: secondRange[1] };
+                                if (!canWorkShift(second.id, day, secondShift) ||
+                                    violatesQuota(schedule[day], secondShift.start, secondShift.end, day)) return;
+
+                                schedule[day][second.id] = secondShift;
+                                const score = scoreSchedule(schedule);
+                                if (score < bestMoveScore) {
+                                    bestMove = {
+                                        type: 'pair-adjust',
+                                        day,
+                                        firstId: first.id,
+                                        secondId: second.id,
+                                        firstShift,
+                                        secondShift
+                                    };
+                                    bestMoveScore = score;
+                                }
+                                delete schedule[day][second.id];
+                            });
+                            delete schedule[day][first.id];
+                        });
+
+                        if (firstOriginal) schedule[day][first.id] = firstOriginal;
+                        if (secondOriginal) schedule[day][second.id] = secondOriginal;
+                    }
+                }
+            }
         });
 
         if (bestMove?.type === 'swap') {
@@ -1177,6 +1246,11 @@ function improveScheduleFairness(schedule) {
         } else if (bestMove?.type === 'transfer') {
             schedule[bestMove.day][bestMove.toId] = schedule[bestMove.day][bestMove.fromId];
             delete schedule[bestMove.day][bestMove.fromId];
+            bestScore = bestMoveScore;
+            improved = true;
+        } else if (bestMove?.type === 'pair-adjust') {
+            schedule[bestMove.day][bestMove.firstId] = bestMove.firstShift;
+            schedule[bestMove.day][bestMove.secondId] = bestMove.secondShift;
             bestScore = bestMoveScore;
             improved = true;
         }
@@ -1484,6 +1558,7 @@ function renderScheduleHistoryTables() {
             entry.schedule,
             entry.positions || {},
             entry.quotas || shiftQuotas,
+            false,
             false
         );
     });
@@ -1665,43 +1740,45 @@ window.addEventListener('resize', () => {
     renderFinalScheduleTable();
 });
 
-function renderScheduleTable(containerId, scheduleData, positionData, quotaData, editablePositions) {
+function renderScheduleTable(containerId, scheduleData, positionData, quotaData, editablePositions, showQuotaAlerts = true) {
     const container = document.getElementById(containerId);
     if (!container) return;
     const isScheduleTable = containerId === 'schedule-table-container';
     const compactSchedule = isScheduleTable
         && window.matchMedia('(max-width: 1024px) and (orientation: landscape)').matches;
 
-    let missingAlerts = [];
-    DAYS.forEach(day => {
-        CORE_BLOCKS.forEach(block => {
-            const required = quotaData[day]?.[block] ?? DEFAULT_QUOTA;
-            const [cb_s, cb_e] = parseTime(block);
-            let assignedCount = 0;
-            
-            if (scheduleData?.[day]) {
-                Object.values(scheduleData[day]).forEach(shift => {
-                    if (coversBlock([shift.start, shift.end], cb_s, cb_e)) assignedCount++;
-                });
-            }
-            
-            const minimumAccepted = Math.max(0, required - getAllowedShortfall(block));
-            if (assignedCount < minimumAccepted) {
-                const shortfallNote = getAllowedShortfall(block) > 0 ? ' (cho phép thiếu tối đa 1)' : '';
-                missingAlerts.push(`<b>${day} (${block})</b>: Cần ${required}${shortfallNote}, chỉ xếp được ${assignedCount}`);
-            }
-            if (assignedCount > required) {
-                missingAlerts.push(`<b>${day} (${block})</b>: Vượt định mức ${required}, đang xếp ${assignedCount}`);
-            }
-        });
-    });
-
     let alertHtml = '';
-    if (missingAlerts.length > 0) {
-        alertHtml = `<div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-4 text-sm">
-                        <p class="font-bold mb-1">⚠️ Cảnh báo định mức các ca lõi:</p>
-                        <ul class="list-disc pl-5">${missingAlerts.map(msg => `<li>${msg}</li>`).join('')}</ul>
-                     </div>`;
+    if (showQuotaAlerts) {
+        const missingAlerts = [];
+        DAYS.forEach(day => {
+            CORE_BLOCKS.forEach(block => {
+                const required = getQuotaFromData(quotaData, day, block);
+                const [cb_s, cb_e] = parseTime(block);
+                let assignedCount = 0;
+
+                if (scheduleData?.[day]) {
+                    Object.values(scheduleData[day]).forEach(shift => {
+                        if (coversBlock([shift.start, shift.end], cb_s, cb_e)) assignedCount++;
+                    });
+                }
+
+                const minimumAccepted = Math.max(0, required - getAllowedShortfall(block));
+                if (assignedCount < minimumAccepted) {
+                    const shortfallNote = getAllowedShortfall(block) > 0 ? ' (cho phép thiếu tối đa 1)' : '';
+                    missingAlerts.push(`<b>${day} (${block})</b>: Cần ${required}${shortfallNote}, chỉ xếp được ${assignedCount}`);
+                }
+                if (assignedCount > required) {
+                    missingAlerts.push(`<b>${day} (${block})</b>: Vượt định mức ${required}, đang xếp ${assignedCount}`);
+                }
+            });
+        });
+
+        if (missingAlerts.length > 0) {
+            alertHtml = `<div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-4 text-sm">
+                            <p class="font-bold mb-1">⚠️ Cảnh báo định mức các ca lõi:</p>
+                            <ul class="list-disc pl-5">${missingAlerts.map(msg => `<li>${msg}</li>`).join('')}</ul>
+                         </div>`;
+        }
     }
 
     const tableClass = compactSchedule
