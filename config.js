@@ -29,7 +29,6 @@ const STAFF_LIST = [
     { id: 'nv3', name: 'Quốc Dũng', type: 'FT' }, 
     { id: 'nv4', name: 'Hoàng Bảo', type: 'FT' },
     { id: 'nv5', name: 'Bảo Lâm', type: 'FT' }, 
-    { id: 'nv6', name: 'Thanh Toàn', type: 'PT' },
     { id: 'nv7', name: 'Minh Thư', type: 'PT' }, 
     { id: 'nv8', name: 'Phương Quỳnh', type: 'PT' },
     { id: 'nv9', name: 'Mỹ Uyên', type: 'PT' }, 
