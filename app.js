@@ -1467,6 +1467,17 @@ function updateStaffPosition(staffId, day, position) {
     saveData();
 }
 
+function escapeHtmlAttribute(value) {
+    const entities = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    };
+    return String(value).replace(/[&<>"']/g, character => entities[character]);
+}
+
 function saveCurrentScheduleToHistory() {
     if (!finalSchedule || !Object.values(finalSchedule).some(daySchedule => Object.keys(daySchedule || {}).length > 0)) {
         alert('Chưa có lịch để lưu vào lịch sử.');
@@ -1847,21 +1858,17 @@ function renderScheduleTable(containerId, scheduleData, positionData, quotaData,
                     html += `<td class="border border-gray-400 p-1 bg-white">${shift.start}–${shift.end}</td>`;
                     return;
                 }
-                const selectedPosition = positionData[day]?.[staff.id] || '';
+                const selectedPosition = escapeHtmlAttribute(positionData[day]?.[staff.id] || '');
                 const positionCellColor = staff.type === 'FT' ? '#d9ead3' : '#ffe599';
-                const positionOptions = ['', 'PTS', 'RTS', 'TN', 'TL', 'ĐGC', 'ĐG']
-                    .map(position => `<option value="${position}" ${position === selectedPosition ? 'selected' : ''}>${position}</option>`)
-                    .join('');
                 const positionLocked = !editablePositions || !positionEditingUnlocked;
 
                 html += `<td class="border border-gray-400 p-1 bg-white">${shift.start}</td>
                          <td class="border border-gray-400 p-1 bg-white">${shift.end}</td>
                          <td class="border border-gray-400 p-1 text-center align-middle" style="background-color: ${positionCellColor}">
-                             <select aria-label="Vị trí ${staff.name} - ${day}"
-                                     ${positionLocked ? 'disabled' : `onchange="updateStaffPosition('${staff.id}', '${day}', this.value)"`}
-                                     class="mx-auto block w-14 rounded border border-gray-300 p-1 text-center" style="background-color: ${positionCellColor}">
-                                 ${positionOptions}
-                             </select>
+                             <input type="text" aria-label="Vị trí ${staff.name} - ${day}"
+                                    value="${selectedPosition}" autocomplete="off"
+                                    ${positionLocked ? 'disabled' : `onchange="updateStaffPosition('${staff.id}', '${day}', this.value)"`}
+                                    class="mx-auto block w-full min-w-12 rounded border border-gray-300 p-1 text-center" style="background-color: ${positionCellColor}">
                          </td>`;
             } else {
                 html += compactSchedule
